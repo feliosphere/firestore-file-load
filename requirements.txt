@@ -1,0 +1,3 @@
+# streamlit
+firebase-admin
+python-dotenv

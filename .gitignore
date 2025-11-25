@@ -1,0 +1,9 @@
+# Python virtual environment
+.venv/
+
+# Zed local environment config
+pyproject.tmol
+.zed/
+
+# Secret config file
+.env
