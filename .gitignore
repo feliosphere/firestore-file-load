@@ -1,9 +1,13 @@
 # Python virtual environment
 .venv/
 
-# Zed local environment config
-pyproject.tmol
+# local environment dev config
+ruff.toml
 .zed/
 
-# Secret config file
+# Secrets config file
 .env
+
+# Compiled Python files
+__pycache__/
+*.pyc
