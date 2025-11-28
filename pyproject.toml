@@ -16,6 +16,7 @@ license = { text = "MIT" }
 # Dependencies
 dependencies = [
     "firebase-admin",
+    "pandas",
 ]
 
 [project.optional-dependencies]
