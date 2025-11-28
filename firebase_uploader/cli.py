@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 
-import service
+from . import service
 
 logger = logging.getLogger(__name__)
 

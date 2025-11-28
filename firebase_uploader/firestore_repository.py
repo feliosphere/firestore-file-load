@@ -4,7 +4,8 @@
 import logging
 
 from firebase_admin import credentials, firestore, initialize_app
-from uploader_interface import UploaderInterface
+
+from .uploader_interface import UploaderInterface
 
 logger = logging.getLogger(__name__)
 
