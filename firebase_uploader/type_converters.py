@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Felipe Paucar
+# Licensed under the MIT License
+
 """
 Type conversion utilities for Firestore value parsing.
 

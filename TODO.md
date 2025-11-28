@@ -11,8 +11,8 @@ These are the tasks required to finalize the new layered architecture.
 ### ✅ Infrastructure Checklist
 
 * [x] Create project files: `pyproject.toml`, `README.md`, `.gitignore`, `requirements.txt`.
-* [ ] Finalize the `firebase_uploader/__init__.py` file (use for convenient imports).
-* [ ] Finalize `pyproject.toml`
+* [x] Finalize the `firebase_uploader/__init__.py` file (use for convenient imports).
+* [x] Finalize `pyproject.toml`
 
 ### 🛠️ Code Implementation
 
@@ -29,7 +29,7 @@ These are the tasks required to finalize the new layered architecture.
 
 ### License
 * [x] Add licencing file
-* [ ] Add copyrite comments to files. 
+* [x] Add copyrite comments to files. 
 
 ---
 
@@ -38,10 +38,10 @@ These are the tasks required to finalize the new layered architecture.
 Focus on ensuring the existing and new core functionality is stable.
 
 * [ ] **Testing Setup:**
-    * [ ] Install `pytest`.
-    * [ ] Create a basic test file: `tests/test_core.py`.
-    * [ ] Implement a **Mock Repository** to test `service.py` without actual Firebase calls.
-* [ ] Update README.
+    * [x] Install `pytest`.
+    * [x] Create a tests files in `tests/`.
+    * [x] Implement a **Mock Repository** to test `service.py` without actual Firebase calls.
+* [x] Update README.
 
 ---
 
