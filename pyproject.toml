@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 # Project Metadata
-name = "firebase-data-uploader"
+name = "FirestoreFileLoad"
 version = "0.1.0"
 description = "A command-line tool to upload CSV (for now) data to Google Firestore."
 readme = "README.md"
@@ -20,7 +20,7 @@ dependencies = [
 
 [project.scripts]
 # Console Script Entry Point
-firebase-uploader = "firebase_uploader.cli:cli_entrypoint"
+ffload = "firebase_uploader.cli:cli_entrypoint"
 
 
 [tool.setuptools.packages]

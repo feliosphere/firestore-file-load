@@ -28,7 +28,7 @@ These are the tasks required to finalize the new layered architecture.
 * [x] Create `firebase_uploader/__main__.py` to enable execution via `python -m firebase_uploader`.
 
 ### License
-* [ ] Add licencing file
+* [x] Add licencing file
 * [ ] Add copyrite comments to files. 
 
 ---

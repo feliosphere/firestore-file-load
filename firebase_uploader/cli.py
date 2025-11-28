@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 
 from . import service
@@ -55,7 +56,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--use-emulator',
+        '--local',
         action='store_true',
         help='Use the Firestore emulator instead of Cloud Firestore',
     )
@@ -77,6 +78,20 @@ def cli_entrypoint():
 
     logger.debug('Starting CLI execution...')
 
+    if args.local:
+        os.environ['FIRESTORE_EMULATOR_HOST'] = 'localhost:8080'
+        logger.info(
+            f'🔧 Mode: EMULATOR (Host: {os.environ.get("FIRESTORE_EMULATOR_HOST")})'
+        )
+    else:
+        print('☁️  Mode: CLOUD (Real Firestore)')
+        print(
+            f'   Project: {os.environ.get("GOOGLE_CLOUD_PROJECT", "unknown")}'
+        )
+    logger.info(
+        f'   Project: {os.environ.get("GOOGLE_CLOUD_PROJECT", "unknown")}'
+    )
+
     try:
         # Call the service layer with the collected arguments
         service.process_and_upload_csv(
@@ -87,6 +102,3 @@ def cli_entrypoint():
         logger.error('Upload failed due to an unhandled error.')
         logger.debug(e, exc_info=True)  # Print traceback in debug mode
         sys.exit(1)
-
-
-# NOTE: The "if __name__ == '__main__':" block is removed from this file.

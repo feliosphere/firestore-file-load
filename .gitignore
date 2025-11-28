@@ -11,3 +11,6 @@ ruff.toml
 # Compiled Python files
 __pycache__/
 *.pyc
+
+# Test files
+*.csv

@@ -1,6 +1,6 @@
-# Firestore Data Loader
+# FirestoreFileLoad
 
-_A personalized tool to load your CSV file into Firestore._
+_A personalized tool to load your CSV (more options to come...) file into Firestore._
 
 ## Why?
 I initially built this as a script for my team to manage secure Firestore batch uploads, as the existing solutions didn't meet our specific requirements. I'm now sharing it and adding more features, hoping it becomes a useful utility for others in the developer community!
@@ -36,6 +36,14 @@ python3 -m pip install -r requirements.txt
 
 5. Create a [service account](https://cloud.google.com/iam/docs/service-accounts-create#creating) in the Google Cloud console to be used as a data loader.
 1. Install `gcloud CLI` following the [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install) instructions.
+1. Verify you are using the correct Google Cloud project:
+   ```bash
+   gcloud config get-value project
+   ```
+   If you need to change the project:
+   ```bash
+   gcloud config set project YOUR_PROJECT_ID
+   ```
 1. Set local dev environment using the [Service Account Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc#service-account).
 
 \* Aletratively you can attempt to use a user account, but I found the service account a more straight forward and team reusable process.
@@ -48,23 +56,13 @@ python3 -m pip install -r requirements.txt
 1. Download the data as a CSV file.
 1. Name de CSV file as the desired `CollectionId` (no need to remove the .csv extension).
 
-### Set Firebase
-
-11. Install `firebase-admin` in your python environment:
-   ```
-   pip install firebase-admin
-   ```
-1. Update the `projectId` value in [.firebaserc](./.firebaserc)
-
-## Running the Script
-
 ### For local emulator:
 
 1. Start your Firestore emulators from your project.
 1. Run the Python script providing the desire options:
 
    ```
-   usage: firestore_data_loader.py [-h] [-d] [-v] csv_file_path
+   usage: -m firebase_uploader [-h] [-d] [-v] csv_file_path
 
    A simple CLI tool for csv to Firestore`
 
@@ -80,3 +78,27 @@ python3 -m pip install -r requirements.txt
    **Note:** The file name is required. You can specify the whole path if it's in a different location.
 
 1. Verify the data has being uploaded.
+
+
+## Troubleshooting
+
+### Authentication Error: "TypeError: 'str' object is not callable"
+
+If you encounter repeated authentication errors with the message:
+```
+TypeError: 'str' object is not callable
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+    status = StatusCode.UNAVAILABLE
+    details = "Getting metadata from plugin failed with error: 'str' object is not callable"
+```
+
+**Cause**: Your Google Cloud Application Default Credentials (ADC) are corrupted or in an invalid state.
+
+**Solution**: Re-authenticate using the gcloud CLI:
+```bash
+gcloud auth application-default login
+```
+
+This will refresh your credentials and save them to `~/.config/gcloud/application_default_credentials.json` (Linux/Mac) or `%APPDATA%\gcloud\application_default_credentials.json` (Windows).
+
+After re-authenticating, try running your command again.
