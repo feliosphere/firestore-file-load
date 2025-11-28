@@ -56,6 +56,61 @@ python3 -m pip install -r requirements.txt
 1. Download the data as a CSV file.
 1. Name de CSV file as the desired `CollectionId` (no need to remove the .csv extension).
 
+#### Data Type Support
+
+The script now supports all Firestore data types! You can use explicit type prefixes in your CSV values or rely on automatic type detection:
+
+**Automatic Type Detection:**
+- `42` → Integer
+- `3.14` → Float
+- `true`, `false`, `yes`, `no` → Boolean
+- `null`, `NULL`, `None` → Null
+- `2025-01-15T10:30:00` → Timestamp (ISO 8601 format)
+- `Hello World` → String (default)
+
+**Forcing Numbers as Strings:**
+
+Sometimes you need to store numbers as strings (e.g., phone numbers, ZIP codes, IDs with leading zeros). You have two options:
+
+1. **Use the `str:` prefix** (Recommended - most explicit):
+   ```csv
+   DocumentId,phone,zip_code,product_id
+   user1,str: 5551234567,str: 00501,str: 007
+   ```
+
+2. **Quote the value in your CSV**:
+   ```csv
+   DocumentId,phone,zip_code,product_id
+   user1,"5551234567","00501","007"
+   ```
+   Note: Both methods preserve leading zeros and prevent numeric conversion.
+
+**Explicit Type Prefixes:**
+
+Use type prefixes to ensure correct data types or to use advanced types:
+
+| Type | Prefix | Example | Result |
+|------|--------|---------|--------|
+| Null | `null:` or `none:` | `null: ` | None |
+| Boolean | `bool:` or `boolean:` | `bool: true` | True |
+| Integer | `int:` or `integer:` | `int: 100` | 100 |
+| Float | `float:` or `double:` | `float: 3.14` | 3.14 |
+| String | `str:` or `string:` | `str: 123` | "123" (as string) |
+| Timestamp | `timestamp:` or `datetime:` | `timestamp: 2025-01-15T10:30:00` | Datetime object |
+| GeoPoint | `geopoint:` or `geo:` | `geopoint: 37.7749,-122.4194` | GeoPoint(37.7749, -122.4194) |
+| Array | `array:` or `list:` | `array: [1, 2, 3]` | [1, 2, 3] |
+| Map/Object | `map:` or `dict:` | `map: {"name": "John"}` | {"name": "John"} |
+| Bytes | `bytes:` | `bytes: aGVsbG8=` | b'hello' (base64 decoded) |
+| Reference | `ref:` or `reference:` | `ref: users/user123` | "users/user123" |
+
+**Example CSV:**
+
+```csv
+DocumentId,name,age,active,score,location,tags,metadata,created_at
+user1,John Doe,int: 30,bool: true,float: 95.5,geopoint: 40.7128,-74.0060,array: ["admin" "user"],map: {"role": "admin"},timestamp: 2025-01-15T10:30:00
+user2,Jane Smith,25,true,88.3,geo: 34.0522,-118.2437,list: ["user"],dict: {"role": "user"},2025-01-14T09:00:00
+```
+
 ### Running the app
 
 You can run the package with the `-m` flag:
