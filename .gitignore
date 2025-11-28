@@ -12,5 +12,9 @@ ruff.toml
 __pycache__/
 *.pyc
 
+# Build Artifacts
+build/
+*.egg-info/
+
 # Test files
 *.csv

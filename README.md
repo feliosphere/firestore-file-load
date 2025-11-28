@@ -56,23 +56,48 @@ python3 -m pip install -r requirements.txt
 1. Download the data as a CSV file.
 1. Name de CSV file as the desired `CollectionId` (no need to remove the .csv extension).
 
-### For local emulator:
+### Running the app
 
+You can run the package with the `-m` flag:
+
+```
+py -m firebase_uploader [-h] [-d] [-v] [-c COLLECTION] [--mode {collection,document}] [--local] csv_file_path
+```
+
+or (**Recommended**) install the cli package in your environment buy running (from root directory):
+
+```
+pip install .
+```
+and then run with the cli command:
+
+```
+ffload [-h] [-d] [-v] [-c COLLECTION] [--mode {collection,document}] [--local] csv_file_path
+```
+
+#### For local emulator
 1. Start your Firestore emulators from your project.
 1. Run the Python script providing the desire options:
 
    ```
-   usage: -m firebase_uploader [-h] [-d] [-v] csv_file_path
-
-   A simple CLI tool for csv to Firestore`
-
+   usage: __main__.py [-h] [-d] [-v] [-c COLLECTION] [--mode {collection,document}] [--local] csv_file_path
+   
+   A simple CLI tool for csv to Firestore
+   
    positional arguments:
-   csv_file_path  csv file path
-
+     csv_file_path         Path to the CSV file.
+   
    options:
-   -h, --help     show this help message and exit
-   -d, --debug    print debug messages
-   -v, --verbose  verbose output
+     -h, --help            show this help message and exit
+     -c COLLECTION, --collection COLLECTION
+                           Target Firestore collection name. Defaults to CSV filename.
+     --mode {collection,document}
+                           Upload mode: "collection" (one collection per file) or "document" (one document per file).
+     --local               Use the Firestore emulator instead of Cloud Firestore
+   
+   Logging and Debugging Options:
+     -d, --debug           print debug messages
+     -v, --verbose         verbose output (INFO level)
    ```
 
    **Note:** The file name is required. You can specify the whole path if it's in a different location.
