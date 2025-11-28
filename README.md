@@ -1,6 +1,6 @@
 # FirestoreFileLoad
 
-_A personalized tool to load your CSV (more options to come...) file into Firestore._
+_A personalized tool to load your CSV (more options to come...) files into Firestore._
 
 ## Why?
 I initially built this as a script for my team to manage secure Firestore batch uploads, as the existing solutions didn't meet our specific requirements. I'm now sharing it and adding more features, hoping it becomes a useful utility for others in the developer community!
@@ -58,7 +58,8 @@ python3 -m pip install -r requirements.txt
 
 #### Data Type Support
 
-The script now supports all Firestore data types! You can use explicit type prefixes in your CSV values or rely on automatic type detection:
+The script now supports all Firestore data types! You can use explicit type prefixes in your CSV values or rely on automatic type detection.
+Define the type for the whole column by appending the type (_e.g._ `age:int`) or for speific fields by using a prefix (_e.g._ `str: 45`)
 
 **Automatic Type Detection:**
 - `42` → Integer
