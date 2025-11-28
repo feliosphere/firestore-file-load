@@ -30,11 +30,16 @@ def parse_firestore_value(value: str) -> Any:
     - str: or string: -> String (explicit string type)
 
     Without prefix, automatic detection is attempted:
+    - Quoted values (e.g., "123") -> String (quotes removed, content treated as string)
     - "null", "NULL", "None" -> None
     - "true", "false", "yes", "no", "1", "0" (case-insensitive) -> Boolean
     - Numeric strings -> Integer or Float
     - ISO 8601 datetime strings -> Datetime
     - Everything else -> String
+
+    Note: To force a number as a string, either:
+      1. Use the str: prefix (recommended): str: 123
+      2. Quote it in your CSV editor - the quotes signal "keep as string"
 
     Args:
         value: The string value to convert
@@ -49,6 +54,11 @@ def parse_firestore_value(value: str) -> Any:
 
     if not value:
         return ''
+
+    # If the value is wrapped in quotes, treat it as a literal string
+    # This handles cases where users quote values in CSV to prevent type conversion
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        return value[1:-1]  # Return content without the quotes
 
     # Check for explicit type prefix
     if ':' in value:

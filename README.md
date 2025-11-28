@@ -68,6 +68,23 @@ The script now supports all Firestore data types! You can use explicit type pref
 - `2025-01-15T10:30:00` → Timestamp (ISO 8601 format)
 - `Hello World` → String (default)
 
+**Forcing Numbers as Strings:**
+
+Sometimes you need to store numbers as strings (e.g., phone numbers, ZIP codes, IDs with leading zeros). You have two options:
+
+1. **Use the `str:` prefix** (Recommended - most explicit):
+   ```csv
+   DocumentId,phone,zip_code,product_id
+   user1,str: 5551234567,str: 00501,str: 007
+   ```
+
+2. **Quote the value in your CSV**:
+   ```csv
+   DocumentId,phone,zip_code,product_id
+   user1,"5551234567","00501","007"
+   ```
+   Note: Both methods preserve leading zeros and prevent numeric conversion.
+
 **Explicit Type Prefixes:**
 
 Use type prefixes to ensure correct data types or to use advanced types:
