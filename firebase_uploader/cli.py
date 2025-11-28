@@ -1,9 +1,12 @@
+# Copyright (c) 2025 Felipe Paucar
+# Licensed under the MIT License
+
 import argparse
 import logging
 import os
 import sys
 
-from . import service
+import service
 
 logger = logging.getLogger(__name__)
 

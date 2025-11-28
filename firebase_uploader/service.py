@@ -1,10 +1,13 @@
+# Copyright (c) 2025 Felipe Paucar
+# Licensed under the MIT License
+
 import csv
 import logging
 import os
 from typing import Any
 
-from .firestore_repository import FirestoreRepository
-from .type_converters import (
+from firestore_repository import FirestoreRepository
+from type_converters import (
     _auto_detect_type,
     _convert_by_type_prefix,
     _extract_type_prefix,

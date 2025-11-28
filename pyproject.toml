@@ -24,18 +24,15 @@ ffload = "firebase_uploader.cli:cli_entrypoint"
 
 
 [tool.setuptools.packages]
-# TODO: Complete Package Discovery section
 find = {}
 
 # --- Optional Tool Configurations ---
 
 [tool.black]
-# TODO: Configure Black code formatter
 line-length = 88
 target-version = ['py311']
 
 [tool.pytest.ini_options]
-# TODO: Configure the pytest test runner
 addopts = "--strict-markers --strict-config"
 testpaths = [
     "tests",

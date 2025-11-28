@@ -1,8 +1,10 @@
+# Copyright (c) 2025 Felipe Paucar
+# Licensed under the MIT License
+
 import logging
 
-from firebase_admin import credentials, firestore, get_app, initialize_app
-
-from .uploader_interface import UploaderInterface
+from firebase_admin import credentials, firestore, initialize_app
+from uploader_interface import UploaderInterface
 
 logger = logging.getLogger(__name__)
 
