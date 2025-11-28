@@ -1,51 +1,72 @@
 import csv
-import json
 import logging
 import os
-from datetime import datetime
 from typing import Any
 
-from google.cloud.firestore import DocumentReference, GeoPoint
-
 from .firestore_repository import FirestoreRepository
+from .type_converters import (
+    _auto_detect_type,
+    _convert_by_type_prefix,
+    _extract_type_prefix,
+    _is_quoted_string,
+    _parse_column_header,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def parse_firestore_value(value: str) -> Any:
+def parse_firestore_value(value: str, type_hint: str | None = None) -> Any:
     """
     Converts a string value to the appropriate Firestore data type.
 
-    Supported type prefixes in CSV:
-    - null: or NULL: -> None
-    - bool: or boolean: -> Boolean (true/false, 1/0, yes/no)
-    - int: or integer: -> Integer
-    - float: or double: -> Float
-    - timestamp: or datetime: -> Datetime (ISO 8601 format)
-    - geopoint: -> GeoPoint (format: "lat,lng" e.g., "37.7749,-122.4194")
-    - array: or list: -> Array (JSON format)
-    - map: or dict: or object: -> Map/Dictionary (JSON format)
-    - bytes: -> Bytes (base64 encoded)
-    - ref: or reference: -> DocumentReference (format: "collection/document")
-    - str: or string: -> String (explicit string type)
+    Type resolution priority (cascade):
+    1. Quoted values (forces string) - highest priority
+    2. Value-level type prefix (e.g., "int: 123")
+    3. Header-level type hint parameter
+    4. Automatic type detection - lowest priority
 
-    Without prefix, automatic detection is attempted:
-    - Quoted values (e.g., "123") -> String (quotes removed, content treated as string)
+    Supported type prefixes/hints:
+    - null, none → None
+    - bool, boolean → Boolean (true/false, 1/0, yes/no)
+    - int, integer → Integer
+    - float, double → Float
+    - timestamp, datetime, date → Datetime (ISO 8601 format)
+    - geopoint, geo, location → GeoPoint (format: "lat,lng")
+    - array, list → Array (JSON format)
+    - map, dict, object → Map/Dictionary (JSON format)
+    - bytes → Bytes (base64 encoded)
+    - ref, reference → DocumentReference (format: "collection/document")
+    - str, string, text → String (explicit string type)
+
+    Without prefix or type hint, automatic detection is attempted:
+    - Quoted values (e.g., "123") -> String (quotes removed)
     - "null", "NULL", "None" -> None
-    - "true", "false", "yes", "no", "1", "0" (case-insensitive) -> Boolean
+    - "true", "false", "yes", "no" (case-insensitive) -> Boolean
     - Numeric strings -> Integer or Float
     - ISO 8601 datetime strings -> Datetime
     - Everything else -> String
 
-    Note: To force a number as a string, either:
+    Note: To force a number as a string:
       1. Use the str: prefix (recommended): str: 123
-      2. Quote it in your CSV editor - the quotes signal "keep as string"
+      2. Use str type hint in column header: column_name:str
+      3. Quote it in your CSV editor: "123"
 
     Args:
         value: The string value to convert
+        type_hint: Optional type hint from column header (e.g., "int")
 
     Returns:
         The converted value in the appropriate Python/Firestore type
+
+    Examples:
+        >>> parse_firestore_value('123')
+        123
+        >>> parse_firestore_value('123', type_hint='str')
+        "123"
+        >>> parse_firestore_value('"123"')  # Quoted
+        "123"
+        >>> parse_firestore_value('str: 123')  # Value prefix overrides
+        "123"
     """
     if not isinstance(value, str):
         return value
@@ -55,164 +76,22 @@ def parse_firestore_value(value: str) -> Any:
     if not value:
         return ''
 
-    # If the value is wrapped in quotes, treat it as a literal string
-    # This handles cases where users quote values in CSV to prevent type conversion
-    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
-        return value[1:-1]  # Return content without the quotes
+    # Priority 1: Quoted values → force string
+    if _is_quoted_string(value):
+        return value[1:-1]  # Return content without quotes
 
-    # Check for explicit type prefix
-    if ':' in value:
-        prefix, content = value.split(':', 1)
-        prefix = prefix.strip().lower()
-        content = content.strip()
+    # Priority 2: Value-level type prefix
+    prefix, content = _extract_type_prefix(value)
+    if prefix is not None:
+        return _convert_by_type_prefix(prefix, content)
 
-        # Null type
-        if prefix in ('null', 'none'):
-            return None
+    # Priority 3: Header-level type hint
+    if type_hint is not None:
+        type_hint = type_hint.strip().lower()
+        return _convert_by_type_prefix(type_hint, value)
 
-        # Boolean type
-        elif prefix in ('bool', 'boolean'):
-            return content.lower() in ('true', '1', 'yes', 'y')
-
-        # Integer type
-        elif prefix in ('int', 'integer'):
-            try:
-                return int(content)
-            except ValueError:
-                logger.warning(
-                    f"Cannot convert '{content}' to integer, returning as string"
-                )
-                return content
-
-        # Float type
-        elif prefix in ('float', 'double'):
-            try:
-                return float(content)
-            except ValueError:
-                logger.warning(
-                    f"Cannot convert '{content}' to float, returning as string"
-                )
-                return content
-
-        # Timestamp/Datetime type
-        elif prefix in ('timestamp', 'datetime', 'date'):
-            try:
-                # Try ISO 8601 format first
-                return datetime.fromisoformat(content)
-            except ValueError:
-                try:
-                    # Try common formats
-                    for fmt in (
-                        '%Y-%m-%d %H:%M:%S',
-                        '%Y-%m-%d',
-                        '%Y/%m/%d %H:%M:%S',
-                        '%Y/%m/%d',
-                    ):
-                        try:
-                            return datetime.strptime(content, fmt)
-                        except ValueError:
-                            continue
-                    logger.warning(
-                        f"Cannot parse datetime '{content}', returning as string"
-                    )
-                    return content
-                except Exception as e:
-                    logger.warning(
-                        f"Error parsing datetime '{content}': {e}, returning as string"
-                    )
-                    return content
-
-        # GeoPoint type
-        elif prefix in ('geopoint', 'geo', 'location'):
-            try:
-                parts = content.split(',')
-                if len(parts) == 2:
-                    lat = float(parts[0].strip())
-                    lng = float(parts[1].strip())
-                    return GeoPoint(lat, lng)
-                logger.warning(
-                    f"Invalid GeoPoint format '{content}', expected 'lat,lng'"
-                )
-                return content
-            except (ValueError, IndexError) as e:
-                logger.warning(f"Cannot parse GeoPoint '{content}': {e}")
-                return content
-
-        # Array type
-        elif prefix in ('array', 'list'):
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.warning(
-                    f"Cannot parse array '{content}': {e}, returning as string"
-                )
-                return content
-
-        # Map/Dictionary type
-        elif prefix in ('map', 'dict', 'object'):
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.warning(
-                    f"Cannot parse map '{content}': {e}, returning as string"
-                )
-                return content
-
-        # Bytes type
-        elif prefix == 'bytes':
-            try:
-                import base64
-
-                return base64.b64decode(content)
-            except Exception as e:
-                logger.warning(
-                    f"Cannot decode bytes '{content}': {e}, returning as string"
-                )
-                return content
-
-        # Reference type
-        elif prefix in ('ref', 'reference'):
-            # Note: This creates a path string. The actual DocumentReference
-            # needs to be created with the Firestore client instance
-            return content  # Return path as string for now
-
-        # String type (explicit)
-        elif prefix in ('str', 'string', 'text'):
-            return content
-
-    # Automatic type detection (no prefix)
-
-    # Check for null values
-    if value.lower() in ('null', 'none', ''):
-        return None
-
-    # Check for boolean values
-    if value.lower() in ('true', 'yes', 'y'):
-        return True
-    if value.lower() in ('false', 'no', 'n'):
-        return False
-
-    # Check for numeric values
-    if value.isdigit() or (value[0] == '-' and value[1:].isdigit()):
-        return int(value)
-
-    # Check for float values
-    try:
-        if '.' in value or 'e' in value.lower():
-            float_val = float(value)
-            return float_val
-    except ValueError:
-        pass
-
-    # Check for ISO 8601 datetime (automatic detection)
-    if 'T' in value or value.count('-') >= 2:
-        try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
-        except ValueError:
-            pass
-
-    # Default to string
-    return value
+    # Priority 4: Automatic type detection
+    return _auto_detect_type(value)
 
 
 def get_fields(row: dict) -> dict:
@@ -220,17 +99,41 @@ def get_fields(row: dict) -> dict:
     Transforms a CSV row (dict) into a Firestore-ready dict,
     performing type conversion and excluding the DocumentId field.
 
-    This function now supports all Firestore data types through explicit
-    type prefixes or automatic detection. See parse_firestore_value() for details.
+    Supports type hints in column headers (e.g., "age:int").
+
+    Type resolution priority:
+    1. Quoted values in cells → force string
+    2. Value-level type prefixes → explicit type
+    3. Header-level type hints → column-wide type
+    4. Automatic detection → infer from value
 
     This is your core business logic for data transformation.
+
+    Args:
+        row: Dictionary representing a CSV row with column headers as keys
+
+    Returns:
+        Dictionary with field names and typed values ready for Firestore
+
+    Examples:
+        Input: {"DocumentId": "doc1", "age:int": "25", "name": "John"}
+        Output: {"age": 25, "name": "John"}
+
+        Input: {"DocumentId": "doc2", "age": "str: 30", "score:float": "95.5"}
+        Output: {"age": "30", "score": 95.5}
     """
     fields = {}
-    for key, value in row.items():
-        if key == 'DocumentId':
+
+    for header, value in row.items():
+        # Parse header to extract field name and optional type hint
+        field_name, type_hint = _parse_column_header(header)
+
+        # Skip DocumentId field
+        if field_name == 'DocumentId':
             continue
 
-        fields[key] = parse_firestore_value(value)
+        # Convert value using type hint if present
+        fields[field_name] = parse_firestore_value(value, type_hint=type_hint)
 
     return fields
 

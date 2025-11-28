@@ -84,10 +84,7 @@ def cli_entrypoint():
             f'🔧 Mode: EMULATOR (Host: {os.environ.get("FIRESTORE_EMULATOR_HOST")})'
         )
     else:
-        print('☁️  Mode: CLOUD (Real Firestore)')
-        print(
-            f'   Project: {os.environ.get("GOOGLE_CLOUD_PROJECT", "unknown")}'
-        )
+        logger.info('☁️  Mode: CLOUD (Real Firestore)')
     logger.info(
         f'   Project: {os.environ.get("GOOGLE_CLOUD_PROJECT", "unknown")}'
     )

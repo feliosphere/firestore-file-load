@@ -41,9 +41,15 @@ Focus on ensuring the existing and new core functionality is stable.
     * [ ] Install `pytest`.
     * [ ] Create a basic test file: `tests/test_core.py`.
     * [ ] Implement a **Mock Repository** to test `service.py` without actual Firebase calls.
+* [ ] Update README.
+
+---
+
+## 🚴 Phase 3: Features
 * [ ] **New Upload Mode:**
     * [ ] Implement the "document" mode logic in `process_and_upload_csv()` in `
 * [ ] **New grouped fields feature**
     * [ ] Implement the "grouped fields" by CSV data naming conventions.
-* [ ] Implement flag for emulator vs cloud
-* [ ] Update README.
+* [x] Implement flag for emulator vs cloud
+* [x] **Field types Support** 
+    * [x] First implementation on field type
