@@ -20,7 +20,7 @@ from .type_converters import (
 logger = logging.getLogger(__name__)
 
 
-def parse_firestore_value(value: str, type_hint: str | None = None) -> Any:
+def parse_firestore_value(value: Any, type_hint: str | None = None) -> Any:
     """Converts a string value to the appropriate Firestore data type."""
     if not isinstance(value, str):
         return value
