@@ -1,10 +1,11 @@
 # Copyright (c) 2025 Felipe Paucar
 # Licensed under the MIT License
 
-import csv
 import logging
 import os
 from typing import Any
+
+import pandas as pd
 
 from .firestore_repository import FirestoreRepository
 from .type_converters import (
@@ -141,19 +142,14 @@ def get_fields(row: dict) -> dict:
     return fields
 
 
-def process_and_upload_csv(csv_file_path: str, collection_name: str, mode: str):
+def process_and_upload_csv(csv_file_path: str, collection_name: str):
     """
     Orchestrates the process of reading the CSV, transforming data, and uploading.
 
     Args:
         csv_file_path: Path to the source CSV file.
         collection_name: The target collection ID (will be ignored in 'document' mode).
-        mode: The upload strategy ('collection' or 'document').
     """
-    if mode == 'document':
-        raise NotImplementedError(
-            'Document upload mode is not yet implemented.'
-        )
 
     repository = FirestoreRepository()
 
@@ -165,20 +161,22 @@ def process_and_upload_csv(csv_file_path: str, collection_name: str, mode: str):
     logger.info(f'Targeting Firestore Collection: {collection_name}')
 
     try:
-        with open(csv_file_path, 'r', encoding='utf-8') as csv_file:
-            reader = csv.DictReader(csv_file)
+        df = pd.read_csv(csv_file_path, dtype=str, keep_default_na=False)
 
-            for i, row in enumerate(reader, start=1):
-                if 'DocumentId' not in row:
-                    logger.warning(
-                        f"Skipping row {i}: 'DocumentId' field missing."
-                    )
-                    continue
+        if 'DocumentId' not in df.columns:
+            raise ValueError("The CSV file is missing the 'DocumentId' column.")
 
-                document_id = row['DocumentId']
-                fields = get_fields(row)
+        records = df.to_dict('records')
 
-                repository.upload_document(collection_name, document_id, fields)
+        for i, row in enumerate(records, start=1):
+            if 'DocumentId' not in row:
+                logger.warning(f"Skipping row {i}: 'DocumentId' field missing.")
+                continue
+
+            document_id = row['DocumentId']
+            fields = get_fields(row)
+
+            repository.upload_document(collection_name, document_id, fields)
 
     except FileNotFoundError:
         logger.error(f'CSV file not found at path: {csv_file_path}')

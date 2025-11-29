@@ -50,14 +50,6 @@ def parse_args():
         help='Target Firestore collection name. Defaults to CSV filename.',
     )
 
-    # NEW Feature: Mode argument (for future expansion)
-    parser.add_argument(
-        '--mode',
-        choices=['collection', 'document'],
-        default='collection',
-        help='Upload mode: "collection" (one collection per file) or "document" (one document per file).',
-    )
-
     parser.add_argument(
         '--local',
         action='store_true',
@@ -94,9 +86,7 @@ def cli_entrypoint():
 
     try:
         # Call the service layer with the collected arguments
-        service.process_and_upload_csv(
-            args.csv_file_path, args.collection, args.mode
-        )
+        service.process_and_upload_csv(args.csv_file_path, args.collection)
         sys.exit(0)
     except Exception as e:
         logger.error('Upload failed due to an unhandled error.')
