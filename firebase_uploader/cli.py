@@ -5,6 +5,9 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
+
+from firebase_uploader import collection_spec
 
 from . import service
 
@@ -14,18 +17,63 @@ logger = logging.getLogger(__name__)
 def parse_args():
     """Defines and parses command-line arguments."""
     parser = argparse.ArgumentParser(
-        description='A simple CLI tool for csv to Firestore'
+        description='CLI tool to upload CSV to Firestore.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Logging arguments
-    logging_group = parser.add_argument_group(
-        'logging and debugging options',
+    # File Inputs
+    files_group = parser.add_argument_group('File Inputs')
+
+    files_group.add_argument(
+        'csv_file_path',
+        type=Path,
+        help='Path to the source CSV file.',
     )
+
+    files_group.add_argument(
+        '-s',
+        '--schema',
+        type=Path,
+        default=None,
+        help='Path to JSON Schema. Defaults to [csv_filename].json if not set.',
+    )
+
+    # Collection Configuration
+    collection_group = parser.add_argument_group('Collection Options')
+
+    collection_group.add_argument(
+        '-c',
+        '--collection',
+        type=str,
+        dest='collection_name',
+        default=None,
+        help='Override Firestore collection name.',
+    )
+
+    collection_group.add_argument(
+        '--merge',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='Merge with existing docs. Use --no-merge to overwrite.',
+    )
+
+    # Connection / Environment
+    conn_group = parser.add_argument_group('Connection Options')
+
+    conn_group.add_argument(
+        '--local',
+        action='store_true',
+        help='Connect to Firestore Emulator instead of Cloud.',
+    )
+
+    # Group 4
+    logging_group = parser.add_argument_group('Logging and Debugging Options')
     logging_exclusive = logging_group.add_mutually_exclusive_group()
+
     logging_exclusive.add_argument(
         '-d',
         '--debug',
-        help='print debug messages',
+        help='Print debug messages.',
         action='store_const',
         dest='loglevel',
         const=logging.DEBUG,
@@ -33,37 +81,12 @@ def parse_args():
     logging_exclusive.add_argument(
         '-v',
         '--verbose',
-        help='verbose output (INFO level)',
+        help='Verbose output (INFO level).',
         action='store_const',
         dest='loglevel',
         const=logging.INFO,
     )
     parser.set_defaults(loglevel=logging.WARNING)
-
-    # CSV file path argument
-    parser.add_argument('csv_file_path', type=str, help='Path to the CSV file.')
-
-    # Collection name argument
-    collection_goup = parser.add_argument_group('collection options')
-    collection_goup.add_argument(
-        '-c',
-        '--collection',
-        type=str,
-        default='',
-        help='Target Firestore collection name. Defaults to CSV filename.',
-    )
-    # collection_goup.add_argument(
-    #     '--merge',
-    #     action=argparse.BooleanOptionalAction,
-    #     default=True,
-    #     help='Merge with existing documents (default). Use --no-merge to overwrite/replace them.',
-    # )
-
-    parser.add_argument(
-        '--local',
-        action='store_true',
-        help='Use the Firestore emulator instead of Cloud Firestore',
-    )
 
     return parser.parse_args()
 
@@ -93,9 +116,16 @@ def cli_entrypoint():
         f'   Project: {os.environ.get("GOOGLE_CLOUD_PROJECT", "unknown")}'
     )
 
+    spec = collection_spec.CollectionSpec(
+        _file_path=args.csv_file_path,
+        _schema_path=args.schema,
+        _merge=args.merge,
+        _name=args.collection_name,
+    )
+
     try:
         # Call the service layer with the collected arguments
-        service.process_and_upload_csv(args.csv_file_path, args.collection)
+        service.process_and_upload_csv(spec)
         sys.exit(0)
     except Exception as e:
         logger.error('Upload failed due to an unhandled error.')

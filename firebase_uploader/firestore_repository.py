@@ -4,6 +4,7 @@
 import logging
 
 from firebase_admin import credentials, firestore, initialize_app
+from numpy._core.numerictypes import bool_
 
 from .uploader_interface import UploaderInterface
 
@@ -34,7 +35,7 @@ class FirestoreRepository(UploaderInterface):
         return firestore.client()
 
     def upload_document(
-        self, collection_id: str, document_id: str, fields: dict
+        self, collection_id: str, document_id: str, fields: dict, merge: bool
     ):
         """
         Uploads a single document to a specified Firestore collection.
@@ -44,7 +45,7 @@ class FirestoreRepository(UploaderInterface):
             doc_ref = self._db_client.collection(collection_id).document(
                 document_id
             )
-            doc_ref.set(fields)
+            doc_ref.set(fields, merge=merge)
             logger.debug(f'Document {document_id} uploaded to {collection_id}.')
         except Exception as e:
             logger.error(

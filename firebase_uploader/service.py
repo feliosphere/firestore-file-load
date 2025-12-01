@@ -4,10 +4,11 @@
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
+from .collection_spec import CollectionSpec
 from .firestore_repository import FirestoreRepository
 from .type_converters import (
     _auto_detect_type,
@@ -125,27 +126,23 @@ def apply_schema_mapping(row_data: dict, schema_structure: Any) -> Any:
     return None
 
 
-def process_and_upload_csv(csv_file_path: str, collection_name: str):
+def process_and_upload_csv(
+    # csv_file_path: str,
+    # collection_name: str,
+    spec: CollectionSpec,
+):
     """
     Reads CSV with Pandas, groups by DocumentId, applies schema, and uploads.
     """
-
+    csv_file_path = spec.file_path
     repository = FirestoreRepository()
 
-    if not collection_name:
-        base_filename = os.path.basename(csv_file_path)
-        collection_name = os.path.splitext(base_filename)[0]
+    # if not collection_name:
+    #     base_filename = os.path.basename(csv_file_path)
+    #     collection_name = os.path.splitext(base_filename)[0]
 
     # LOAD THE SCHEMA
-    schema_path = 'schema.json'
-    schema = None
-    if os.path.exists(schema_path):
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            schema = json.load(f)
-        logger.info('✅ Loaded custom schema.json')
-    else:
-        logger.info('ℹ️ No schema.json found. Using default flat structure.')
-
+    schema = spec.get_schema()
     try:
         logger.info(f'Processing file: {csv_file_path}')
 
@@ -192,7 +189,7 @@ def process_and_upload_csv(csv_file_path: str, collection_name: str):
                     firestore_doc['items'].append(clean_row)
 
             repository.upload_document(
-                collection_name, doc_id_str, firestore_doc
+                spec.name, doc_id_str, firestore_doc, spec.merge
             )
 
     except FileNotFoundError:
