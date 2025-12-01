@@ -18,9 +18,9 @@ FirestoreFileLoad is a CLI tool that uploads CSV data to Google Firestore with p
 
 ## 🚀 Quick Start
 
-### Installation
+### CLI Installation
 
-1. Create a Python virtual environment:
+1. Create a Python virtual environment of your choice (e.g., `venv`, `conda`, `pipenv`). For example, using `venv`:
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -31,7 +31,7 @@ FirestoreFileLoad is a CLI tool that uploads CSV data to Google Firestore with p
    pip install .
    ```
 
-3. Authenticate with Google Cloud:
+3. Authenticate with Google Cloud (see also [Google Cloud Setup](#-google-cloud-setup)):
    ```bash
    gcloud auth application-default login
    ```

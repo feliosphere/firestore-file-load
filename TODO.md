@@ -37,7 +37,7 @@ These are the tasks required to finalize the new layered architecture.
 
 Focus on ensuring the existing and new core functionality is stable.
 
-* [ ] **Testing Setup:**
+* [x] **Testing Setup:**
     * [x] Install `pytest`.
     * [x] Create a tests files in `tests/`.
     * [x] Implement a **Mock Repository** to test `service.py` without actual Firebase calls.
@@ -46,10 +46,12 @@ Focus on ensuring the existing and new core functionality is stable.
 ---
 
 ## 🚴 Phase 3: Features
-* [ ] **New Upload Mode:**
-    * [ ] Implement the "document" mode logic in `process_and_upload_csv()` in `
-* [ ] **New grouped fields feature**
-    * [ ] Implement the "grouped fields" by CSV data naming conventions.
+* [x] ~~**New Upload Mode:**~~
+    * ~~[ ] Implement the "document" mode logic in process_and_upload_csv()~~ **Implemented using schema**
+* [x] **New grouped fields feature**
+    * [ ] ~~Implement the "grouped fields" by CSV data naming conventions.~~**Implemented using schema**
 * [x] Implement flag for emulator vs cloud
 * [x] **Field types Support** 
     * [x] First implementation on field type
+
+**Basic functionalities are in place. Future enhancements will be tracked in GitHub Project and Issues**
