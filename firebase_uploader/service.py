@@ -125,8 +125,6 @@ def apply_schema_mapping(row_data: dict, schema_structure: Any) -> Any:
 
 
 def process_and_upload_csv(
-    # csv_file_path: str,
-    # collection_name: str,
     spec: CollectionSpec,
 ):
     """
