@@ -48,15 +48,91 @@ python3 -m pip install -r requirements.txt
 
 \* Aletratively you can attempt to use a user account, but I found the service account a more straight forward and team reusable process.
 
-### Prepare the data
+## Prepare the data
 
-8. Organize your data in a spread sheet with the following structure:
+1. Organize your data in a spread sheet with the following structure:
    - The first row must be the labels of your _DocumentIds_ and _fields_
    - The column with the **DocumentIds** must be called `DocumentId`
 1. Download the data as a CSV file.
 1. Name de CSV file as the desired `CollectionId` (no need to remove the .csv extension).
 
-#### Data Type Support
+### 🚀 Advanced Data Grouping
+
+**FFLoad** supports powerful data grouping capabilities. This allows you to turn flat CSV rows into complex, hierarchical Firestore documents without writing custom code.
+
+#### 1. Automatic Grouping (Default Behavior)
+
+If you do not provide a schema, the tool automatically detects when multiple rows share the same `DocumentId`. Instead of overwriting the document, it groups the rows into a list called `items`.
+
+**CSV Input:**
+```csv
+DocumentId, item_name, price
+order_101,  Apple,     1.50
+order_101,  Banana,    0.80
+order_102,  Cherry,    2.00
+```
+
+**Firestore Result:** Document: `order_101`
+```json
+{
+  "items": [
+    { "item_name": "Apple", "price": 1.50 },
+    { "item_name": "Banana", "price": 0.80 }
+  ]
+}
+```
+#### 2. Schema-Driven Structure (Advanced)
+
+For complex data structures (nested maps, dynamic lists), you can define a `schema.json` file in your root directory. This tells the tool how to restructure your flat CSV columns into a nested JSON tree.
+
+How to use:
+
+    Create a `schema.json` file in the folder where you run the script.
+
+    Define your structure using the configuration options below.
+
+**Example** `schema.json`:
+
+```json
+{
+  "key_column": "id",
+  "structure": {
+    "question_text": "question",
+    "options": [
+      { "id": "literal:a", "text": "opt_a" },
+      { "id": "literal:b", "text": "opt_b" },
+      { "id": "literal:c", "text": "opt_c" }
+    ],
+    "tags": ["tag_1", "tag_2"]
+  }
+}
+```
+
+#### Schema Configuration Options
+
+- `key_column`: Specifies which column in the CSV is used as the key for the map inside the document.
+
+- `structure`: A JSON object defining the desired output shape.
+
+  - `Maps`: Define nested dictionaries to create maps in Firestore.
+
+  - `Lists`: Define arrays to create lists in Firestore.
+
+  - `Strings`: Map a target field name to a CSV column header.
+
+- `literal`: *Prefix*: Use `literal:value` to hardcode a string in your output. This is essential for fixed IDs in lists (e.g., `{"id": "literal:a"}`).
+
+#### ✨ Dynamic List Filtering
+
+The tool is smart enough to handle variable-length lists from a fixed CSV structure.
+
+If you define a list in your schema (e.g., 4 potential options), but a specific CSV row only has data for 2 of them, the tool will **automatically drop the empty items**.
+
+- **Logic**: An item is dropped if all its non-literal fields are empty.
+
+- **Benefit**: You can use a single CSV schema to upload questions with 2, 3, 4, or 5 options without creating empty "ghost" objects in Firestore.
+
+### Data Type Support
 
 The script now supports all Firestore data types! You can use explicit type prefixes in your CSV values or rely on automatic type detection.
 Define the type for the whole column by appending the type (_e.g._ `age:int`) or for speific fields by using a prefix (_e.g._ `str: 45`)

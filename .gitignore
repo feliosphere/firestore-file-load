@@ -18,3 +18,4 @@ build/
 
 # Test files
 *.csv
+*.json

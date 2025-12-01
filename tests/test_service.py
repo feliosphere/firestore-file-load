@@ -3,7 +3,12 @@
 
 """Tests for service layer functionality in firebase_uploader."""
 
-from firebase_uploader.service import get_fields
+from firebase_uploader.service import (
+    _is_effectively_empty,
+    apply_schema_mapping,
+    get_fields,
+    parse_firestore_value,
+)
 
 
 class TestGetFields:
@@ -135,3 +140,301 @@ class TestGetFields:
             'active': True,
             'id': '123',
         }
+
+
+class TestParseFirestoreValue:
+    """Tests for parse_firestore_value function."""
+
+    def test_non_string_value_returns_as_is(self):
+        """Test that non-string values are returned unchanged."""
+        assert parse_firestore_value(123) == 123
+        assert parse_firestore_value(45.6) == 45.6
+        assert parse_firestore_value(True) is True
+        assert parse_firestore_value(None) is None
+
+    def test_empty_string_returns_empty_string(self):
+        """Test that empty strings remain empty strings."""
+        assert parse_firestore_value('') == ''
+        assert parse_firestore_value('   ') == ''
+
+    def test_quoted_string_extraction(self):
+        """Test that quoted strings are unquoted."""
+        assert parse_firestore_value('"hello"') == 'hello'
+        assert parse_firestore_value('"123"') == '123'
+        assert parse_firestore_value('"true"') == 'true'
+
+    def test_value_prefix_conversion(self):
+        """Test type conversion using value-level prefixes."""
+        assert parse_firestore_value('int: 42') == 42
+        assert parse_firestore_value('float: 3.14') == 3.14
+        assert parse_firestore_value('bool: true') is True
+        assert parse_firestore_value('str: 123') == '123'
+
+    def test_type_hint_conversion(self):
+        """Test type conversion using header type hints."""
+        assert parse_firestore_value('100', type_hint='int') == 100
+        assert parse_firestore_value('3.14', type_hint='float') == 3.14
+        assert parse_firestore_value('yes', type_hint='bool') is True
+        assert parse_firestore_value('456', type_hint='str') == '456'
+
+    def test_auto_detection(self):
+        """Test automatic type detection."""
+        assert parse_firestore_value('123') == 123
+        assert parse_firestore_value('45.6') == 45.6
+        assert parse_firestore_value('true') is True
+        assert parse_firestore_value('false') is False
+        assert parse_firestore_value('hello') == 'hello'
+
+    def test_value_prefix_overrides_type_hint(self):
+        """Test that value prefix takes precedence over type hint."""
+        assert parse_firestore_value('str: 100', type_hint='int') == '100'
+        assert isinstance(
+            parse_firestore_value('str: 100', type_hint='int'), str
+        )
+
+    def test_quoted_value_overrides_type_hint(self):
+        """Test that quoted values override type hints."""
+        assert parse_firestore_value('"100"', type_hint='int') == '100'
+        assert isinstance(parse_firestore_value('"100"', type_hint='int'), str)
+
+    def test_whitespace_handling(self):
+        """Test that leading/trailing whitespace is stripped."""
+        assert parse_firestore_value('  123  ') == 123
+        assert parse_firestore_value('  hello  ') == 'hello'
+
+
+class TestIsEffectivelyEmpty:
+    """Tests for _is_effectively_empty function."""
+
+    def test_none_is_empty(self):
+        """Test that None values are considered empty."""
+        assert _is_effectively_empty(None, None) is True
+
+    def test_empty_string_is_empty(self):
+        """Test that empty strings are considered empty."""
+        assert _is_effectively_empty('', None) is True
+        assert _is_effectively_empty('   ', None) is True
+
+    def test_non_empty_string_is_not_empty(self):
+        """Test that non-empty strings are not empty."""
+        assert _is_effectively_empty('hello', None) is False
+        assert _is_effectively_empty('0', None) is False
+
+    def test_empty_dict_is_empty(self):
+        """Test that dictionaries with all empty values are empty."""
+        schema = {'name': 'name_field', 'age': 'age_field'}
+        data = {'name': '', 'age': None}
+        assert _is_effectively_empty(data, schema) is True
+
+    def test_dict_with_non_empty_value_is_not_empty(self):
+        """Test that dictionaries with any non-empty value are not empty."""
+        schema = {'name': 'name_field', 'age': 'age_field'}
+        data = {'name': 'John', 'age': None}
+        assert _is_effectively_empty(data, schema) is False
+
+    def test_dict_with_literal_fields_ignores_literals(self):
+        """Test that literal fields are ignored when checking emptiness."""
+        schema = {'id': 'literal:a', 'text': 'text_field'}
+        # Even though 'id' has a value, if it's a literal in schema, check 'text'
+        data = {'id': 'a', 'text': ''}
+        assert _is_effectively_empty(data, schema) is True
+
+        data = {'id': 'a', 'text': 'Some text'}
+        assert _is_effectively_empty(data, schema) is False
+
+    def test_empty_list_is_empty(self):
+        """Test that empty lists are considered empty."""
+        assert _is_effectively_empty([], None) is True
+
+    def test_list_with_all_empty_items_is_empty(self):
+        """Test that lists with all empty items are empty."""
+        data = ['', None, '   ']
+        assert _is_effectively_empty(data, None) is True
+
+    def test_list_with_non_empty_item_is_not_empty(self):
+        """Test that lists with any non-empty item are not empty."""
+        data = ['', 'hello', None]
+        assert _is_effectively_empty(data, None) is False
+
+    def test_nested_empty_structures(self):
+        """Test deeply nested empty structures."""
+        schema = {'options': [{'id': 'literal:a', 'text': 'text_field'}]}
+        data = {'options': [{'id': 'a', 'text': ''}, {'id': 'b', 'text': None}]}
+        # The list has items, so the dict is not empty
+        # (even though the items themselves might have empty non-literal fields)
+        assert _is_effectively_empty(data, schema) is False
+
+        # However, a dict with an empty list should be empty
+        data_with_empty_list = {'options': []}
+        assert _is_effectively_empty(data_with_empty_list, schema) is True
+
+    def test_non_empty_values(self):
+        """Test that various non-empty values return False."""
+        assert _is_effectively_empty(0, None) is False
+        assert _is_effectively_empty(False, None) is False
+        assert _is_effectively_empty(123, None) is False
+        assert _is_effectively_empty({'key': 'value'}, {}) is False
+
+
+class TestApplySchemaMapping:
+    """Tests for apply_schema_mapping function."""
+
+    def test_simple_string_mapping(self):
+        """Test mapping a simple string field."""
+        row_data = {'question': 'What is 2+2?', 'answer': '4'}
+        schema = 'question'
+        result = apply_schema_mapping(row_data, schema)
+        assert result == 'What is 2+2?'
+
+    def test_literal_string_mapping(self):
+        """Test mapping a literal string value."""
+        row_data = {'question': 'What is 2+2?'}
+        schema = 'literal:a'
+        result = apply_schema_mapping(row_data, schema)
+        assert result == 'a'
+
+    def test_dict_mapping(self):
+        """Test mapping to a dictionary structure."""
+        row_data = {
+            'q_text': 'What is the capital?',
+            'ans': 'Paris',
+            'pts': '10',
+        }
+        schema = {'question': 'q_text', 'answer': 'ans', 'points': 'pts'}
+        result = apply_schema_mapping(row_data, schema)
+        assert result == {
+            'question': 'What is the capital?',
+            'answer': 'Paris',
+            'points': '10',
+        }
+
+    def test_list_mapping(self):
+        """Test mapping to a list structure."""
+        row_data = {
+            'opt_a': 'Option A',
+            'opt_b': 'Option B',
+            'opt_c': 'Option C',
+        }
+        schema = [
+            {'id': 'literal:a', 'text': 'opt_a'},
+            {'id': 'literal:b', 'text': 'opt_b'},
+            {'id': 'literal:c', 'text': 'opt_c'},
+        ]
+        result = apply_schema_mapping(row_data, schema)
+        assert result == [
+            {'id': 'a', 'text': 'Option A'},
+            {'id': 'b', 'text': 'Option B'},
+            {'id': 'c', 'text': 'Option C'},
+        ]
+
+    def test_list_mapping_filters_empty_items(self):
+        """Test that empty items are filtered from lists."""
+        row_data = {
+            'opt_a': 'Option A',
+            'opt_b': '',
+            'opt_c': 'Option C',
+            'opt_d': None,
+        }
+        schema = [
+            {'id': 'literal:a', 'text': 'opt_a'},
+            {'id': 'literal:b', 'text': 'opt_b'},
+            {'id': 'literal:c', 'text': 'opt_c'},
+            {'id': 'literal:d', 'text': 'opt_d'},
+        ]
+        result = apply_schema_mapping(row_data, schema)
+        # Only items with non-empty text should remain
+        assert len(result) == 2
+        assert result == [
+            {'id': 'a', 'text': 'Option A'},
+            {'id': 'c', 'text': 'Option C'},
+        ]
+
+    def test_nested_structure_mapping(self):
+        """Test mapping to a complex nested structure."""
+        row_data = {
+            'q': 'What is Python?',
+            'a': 'Answer A',
+            'b': 'Answer B',
+            'correct': 'a',
+            'tag1': 'programming',
+            'tag2': 'python',
+        }
+        schema = {
+            'question_text': 'q',
+            'options': [
+                {'id': 'literal:a', 'text': 'a'},
+                {'id': 'literal:b', 'text': 'b'},
+            ],
+            'correct_option': 'correct',
+            'tags': ['tag1', 'tag2'],
+        }
+        result = apply_schema_mapping(row_data, schema)
+        assert result == {
+            'question_text': 'What is Python?',
+            'options': [
+                {'id': 'a', 'text': 'Answer A'},
+                {'id': 'b', 'text': 'Answer B'},
+            ],
+            'correct_option': 'a',
+            'tags': ['programming', 'python'],
+        }
+
+    def test_missing_field_returns_none(self):
+        """Test that missing fields return None."""
+        row_data = {'name': 'John'}
+        schema = 'age'
+        result = apply_schema_mapping(row_data, schema)
+        assert result is None
+
+    def test_complex_filtering_scenario(self):
+        """Test a realistic scenario with partial data."""
+        row_data = {
+            'id': '1',
+            'question': 'Sample question',
+            'opt_a': 'First option',
+            'opt_b': 'Second option',
+            'opt_c': '',  # Empty
+            'opt_d': '',  # Empty
+            'elem_1': 'img_001',
+            'elem_2': '',  # Empty
+        }
+        schema = {
+            'question': 'question',
+            'options': [
+                {'id': 'literal:a', 'text': 'opt_a'},
+                {'id': 'literal:b', 'text': 'opt_b'},
+                {'id': 'literal:c', 'text': 'opt_c'},
+                {'id': 'literal:d', 'text': 'opt_d'},
+            ],
+            'content_elements': ['elem_1', 'elem_2'],
+        }
+        result = apply_schema_mapping(row_data, schema)
+
+        # Should only have 2 options (a and b)
+        assert len(result['options']) == 2
+        assert result['options'] == [
+            {'id': 'a', 'text': 'First option'},
+            {'id': 'b', 'text': 'Second option'},
+        ]
+
+        # content_elements is a list of strings (not dicts)
+        # Empty strings ARE filtered even in simple string lists
+        assert len(result['content_elements']) == 1
+        assert result['content_elements'] == ['img_001']
+
+    def test_all_empty_list_returns_empty_list(self):
+        """Test that a list with all empty items returns an empty list."""
+        row_data = {'opt_a': '', 'opt_b': None, 'opt_c': '   '}
+        schema = [
+            {'id': 'literal:a', 'text': 'opt_a'},
+            {'id': 'literal:b', 'text': 'opt_b'},
+            {'id': 'literal:c', 'text': 'opt_c'},
+        ]
+        result = apply_schema_mapping(row_data, schema)
+        assert result == []
+
+    def test_none_schema_returns_none(self):
+        """Test that None schema returns None."""
+        row_data = {'name': 'John'}
+        result = apply_schema_mapping(row_data, None)
+        assert result is None

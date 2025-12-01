@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Felipe Paucar
 # Licensed under the MIT License
 
+import json
 import logging
 import os
 from typing import Any
@@ -19,59 +20,8 @@ from .type_converters import (
 logger = logging.getLogger(__name__)
 
 
-def parse_firestore_value(value: str, type_hint: str | None = None) -> Any:
-    """
-    Converts a string value to the appropriate Firestore data type.
-
-    Type resolution priority (cascade):
-    1. Quoted values (forces string) - highest priority
-    2. Value-level type prefix (e.g., "int: 123")
-    3. Header-level type hint parameter
-    4. Automatic type detection - lowest priority
-
-    Supported type prefixes/hints:
-    - null, none → None
-    - bool, boolean → Boolean (true/false, 1/0, yes/no)
-    - int, integer → Integer
-    - float, double → Float
-    - timestamp, datetime, date → Datetime (ISO 8601 format)
-    - geopoint, geo, location → GeoPoint (format: "lat,lng")
-    - array, list → Array (JSON format)
-    - map, dict, object → Map/Dictionary (JSON format)
-    - bytes → Bytes (base64 encoded)
-    - ref, reference → DocumentReference (format: "collection/document")
-    - str, string, text → String (explicit string type)
-
-    Without prefix or type hint, automatic detection is attempted:
-    - Quoted values (e.g., "123") -> String (quotes removed)
-    - "null", "NULL", "None" -> None
-    - "true", "false", "yes", "no" (case-insensitive) -> Boolean
-    - Numeric strings -> Integer or Float
-    - ISO 8601 datetime strings -> Datetime
-    - Everything else -> String
-
-    Note: To force a number as a string:
-      1. Use the str: prefix (recommended): str: 123
-      2. Use str type hint in column header: column_name:str
-      3. Quote it in your CSV editor: "123"
-
-    Args:
-        value: The string value to convert
-        type_hint: Optional type hint from column header (e.g., "int")
-
-    Returns:
-        The converted value in the appropriate Python/Firestore type
-
-    Examples:
-        >>> parse_firestore_value('123')
-        123
-        >>> parse_firestore_value('123', type_hint='str')
-        "123"
-        >>> parse_firestore_value('"123"')  # Quoted
-        "123"
-        >>> parse_firestore_value('str: 123')  # Value prefix overrides
-        "123"
-    """
+def parse_firestore_value(value: Any, type_hint: str | None = None) -> Any:
+    """Converts a string value to the appropriate Firestore data type."""
     if not isinstance(value, str):
         return value
 
@@ -80,109 +30,176 @@ def parse_firestore_value(value: str, type_hint: str | None = None) -> Any:
     if not value:
         return ''
 
-    # Priority 1: Quoted values → force string
     if _is_quoted_string(value):
-        return value[1:-1]  # Return content without quotes
+        return value[1:-1]
 
-    # Priority 2: Value-level type prefix
     prefix, content = _extract_type_prefix(value)
     if prefix is not None:
         return _convert_by_type_prefix(prefix, content)
 
-    # Priority 3: Header-level type hint
     if type_hint is not None:
         type_hint = type_hint.strip().lower()
         return _convert_by_type_prefix(type_hint, value)
 
-    # Priority 4: Automatic type detection
     return _auto_detect_type(value)
 
 
 def get_fields(row: dict) -> dict:
-    """
-    Transforms a CSV row (dict) into a Firestore-ready dict,
-    performing type conversion and excluding the DocumentId field.
-
-    Supports type hints in column headers (e.g., "age:int").
-
-    Type resolution priority:
-    1. Quoted values in cells → force string
-    2. Value-level type prefixes → explicit type
-    3. Header-level type hints → column-wide type
-    4. Automatic detection → infer from value
-
-    This is your core business logic for data transformation.
-
-    Args:
-        row: Dictionary representing a CSV row with column headers as keys
-
-    Returns:
-        Dictionary with field names and typed values ready for Firestore
-
-    Examples:
-        Input: {"DocumentId": "doc1", "age:int": "25", "name": "John"}
-        Output: {"age": 25, "name": "John"}
-
-        Input: {"DocumentId": "doc2", "age": "str: 30", "score:float": "95.5"}
-        Output: {"age": "30", "score": 95.5}
-    """
+    """Transforms a raw CSV row (dict) into a typed Firestore-ready dict."""
     fields = {}
 
     for header, value in row.items():
-        # Parse header to extract field name and optional type hint
         field_name, type_hint = _parse_column_header(header)
 
-        # Skip DocumentId field
         if field_name == 'DocumentId':
             continue
 
-        # Convert value using type hint if present
         fields[field_name] = parse_firestore_value(value, type_hint=type_hint)
 
     return fields
 
 
+def _is_effectively_empty(data: Any, schema: Any) -> bool:
+    """
+    Recursively checks if 'data' is empty.
+
+    Crucial Logic:
+    1. Primitives (Strings/Nulls) are empty if they are '' or None.
+    2. Dictionaries are empty if ALL their non-literal values are empty.
+    3. Lists are empty if ALL their items are empty.
+    """
+    if data is None:
+        return True
+    if isinstance(data, str) and data.strip() == '':
+        return True
+
+    if isinstance(data, dict) and isinstance(schema, dict):
+        for key, value in data.items():
+            field_schema = schema.get(key)
+
+            if isinstance(field_schema, str) and field_schema.startswith(
+                'literal:'
+            ):
+                continue
+
+            if not _is_effectively_empty(value, field_schema):
+                return False
+
+        return True
+
+    if isinstance(data, list):
+        return all(_is_effectively_empty(v, schema) for v in data)
+
+    return False
+
+
+def apply_schema_mapping(row_data: dict, schema_structure: Any) -> Any:
+    """
+    Recursively transforms a flat row dictionary into a nested dictionary
+    or list based on the provided schema structure.
+    """
+    if isinstance(schema_structure, dict):
+        result = {}
+        for target_key, source_mapping in schema_structure.items():
+            # Recursively build the value
+            val = apply_schema_mapping(row_data, source_mapping)
+            result[target_key] = val
+        return result
+
+    elif isinstance(schema_structure, list):
+        result_list = []
+        for item_schema in schema_structure:
+            candidate = apply_schema_mapping(row_data, item_schema)
+
+            if not _is_effectively_empty(candidate, item_schema):
+                result_list.append(candidate)
+
+        return result_list
+
+    elif isinstance(schema_structure, str):
+        if schema_structure.startswith('literal:'):
+            return schema_structure.split(':', 1)[1]
+
+        return row_data.get(schema_structure)
+
+    return None
+
+
 def process_and_upload_csv(csv_file_path: str, collection_name: str):
     """
-    Orchestrates the process of reading the CSV, transforming data, and uploading.
-
-    Args:
-        csv_file_path: Path to the source CSV file.
-        collection_name: The target collection ID (will be ignored in 'document' mode).
+    Reads CSV with Pandas, groups by DocumentId, applies schema, and uploads.
     """
 
     repository = FirestoreRepository()
 
-    # The collection name argument takes priority, but use filename if not provided
     if not collection_name:
         base_filename = os.path.basename(csv_file_path)
         collection_name = os.path.splitext(base_filename)[0]
 
-    logger.info(f'Targeting Firestore Collection: {collection_name}')
+    # LOAD THE SCHEMA
+    schema_path = 'schema.json'
+    schema = None
+    if os.path.exists(schema_path):
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            schema = json.load(f)
+        logger.info('✅ Loaded custom schema.json')
+    else:
+        logger.info('ℹ️ No schema.json found. Using default flat structure.')
 
     try:
+        logger.info(f'Processing file: {csv_file_path}')
+
+        # LOAD DATA
         df = pd.read_csv(csv_file_path, dtype=str, keep_default_na=False)
 
         if 'DocumentId' not in df.columns:
             raise ValueError("The CSV file is missing the 'DocumentId' column.")
 
-        records = df.to_dict('records')
+        grouped = df.groupby('DocumentId')
+        logger.info(f'Found {len(grouped)} unique documents to process.')
 
-        for i, row in enumerate(records, start=1):
-            if 'DocumentId' not in row:
-                logger.warning(f"Skipping row {i}: 'DocumentId' field missing.")
-                continue
+        # PROCESS GROUPS
+        for document_id, group_df in grouped:
+            doc_id_str = str(document_id)
 
-            document_id = row['DocumentId']
-            fields = get_fields(row)
+            raw_rows = group_df.to_dict('records')
+            firestore_doc = {}
 
-            repository.upload_document(collection_name, document_id, fields)
+            # Process each row in the group
+            for raw_row in raw_rows:
+                # Type Conversion
+                clean_row = get_fields(raw_row)
+
+                # Schema Application
+                if schema:
+                    key_col = schema.get('key_column', 'id')
+
+                    if key_col in clean_row and clean_row[key_col]:
+                        doc_key = str(clean_row[key_col])
+                        nested_data = apply_schema_mapping(
+                            clean_row, schema['structure']
+                        )
+                        firestore_doc[doc_key] = nested_data
+                    else:
+                        logger.warning(
+                            f"Skipping row in {doc_id_str}: Missing key column '{key_col}'"
+                        )
+
+                else:
+                    # Fallback (No Schema)
+                    if 'items' not in firestore_doc:
+                        firestore_doc['items'] = []
+                    firestore_doc['items'].append(clean_row)
+
+            repository.upload_document(
+                collection_name, doc_id_str, firestore_doc
+            )
 
     except FileNotFoundError:
         logger.error(f'CSV file not found at path: {csv_file_path}')
         raise
     except Exception as e:
-        logger.error(f'An error occurred during CSV processing:{e}')
+        logger.error(f'An error occurred: {e}')
         raise
 
-    logging.info('Data added to Firestore successfully!')
+    logger.info('Data added to Firestore successfully!')
