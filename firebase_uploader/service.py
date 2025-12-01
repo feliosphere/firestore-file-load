@@ -135,9 +135,6 @@ def process_and_upload_csv(
     csv_file_path = spec.file_path
     repository = FirestoreRepository()
 
-    # if not collection_name:
-    #     base_filename = os.path.basename(csv_file_path)
-    #     collection_name = os.path.splitext(base_filename)[0]
 
     # LOAD THE SCHEMA
     schema = spec.get_schema()
