@@ -13,6 +13,7 @@ class CollectionSpec:
     _merge: bool  # The Behavior
     _name: Optional[str] = None
     _schema_path: Optional[Path] = None  # The Structure
+    _cached_schema: Optional[dict] = None  # Cache for loaded schema
 
     @property
     def file_path(self) -> Path:
