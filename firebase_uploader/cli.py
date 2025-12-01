@@ -16,39 +16,48 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='A simple CLI tool for csv to Firestore'
     )
+
     # Logging arguments
-    #
-    logging_group = parser.add_argument_group('Logging and Debugging Options')
-    logging_group.add_argument(
+    logging_group = parser.add_argument_group(
+        'logging and debugging options',
+    )
+    logging_exclusive = logging_group.add_mutually_exclusive_group()
+    logging_exclusive.add_argument(
         '-d',
         '--debug',
         help='print debug messages',
         action='store_const',
-        dest='debug',
+        dest='loglevel',
         const=logging.DEBUG,
-        default=logging.WARNING,
     )
-    logging_group.add_argument(
+    logging_exclusive.add_argument(
         '-v',
         '--verbose',
         help='verbose output (INFO level)',
         action='store_const',
         dest='loglevel',
         const=logging.INFO,
-        default=logging.WARNING,
     )
+    parser.set_defaults(loglevel=logging.WARNING)
 
     # CSV file path argument
     parser.add_argument('csv_file_path', type=str, help='Path to the CSV file.')
 
-    # NEW Feature: Collection name argument
-    parser.add_argument(
+    # Collection name argument
+    collection_goup = parser.add_argument_group('collection options')
+    collection_goup.add_argument(
         '-c',
         '--collection',
         type=str,
         default='',
         help='Target Firestore collection name. Defaults to CSV filename.',
     )
+    # collection_goup.add_argument(
+    #     '--merge',
+    #     action=argparse.BooleanOptionalAction,
+    #     default=True,
+    #     help='Merge with existing documents (default). Use --no-merge to overwrite/replace them.',
+    # )
 
     parser.add_argument(
         '--local',
@@ -65,7 +74,7 @@ def cli_entrypoint():
 
     # Configure logging based on CLI arguments
     logging.basicConfig(
-        level=min(args.debug, args.loglevel),
+        level=args.loglevel,
         format='{asctime} - {levelname} :\t{message}',
         style='{',
         datefmt='%Y-%m-%d %H:%M',
