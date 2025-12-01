@@ -63,7 +63,7 @@ Document `order_102`:
 
 ## Schema-Driven Transformation
 
-For complex data structures (nested maps, custom arrays, literal values), create a `schema.json` file in your working directory.
+For complex data structures (nested maps, custom arrays, literal values), create a JSON schema file. The tool automatically looks for a schema file matching your CSV filename (e.g., `data.csv` → `data.json`), or you can specify a custom path with the `-s` flag.
 
 ### Basic Schema Structure
 
@@ -87,7 +87,7 @@ quiz_1,Q1,What is 2+2?,3,4,5,,b
 quiz_1,Q2,Capital of France?,London,Paris,Berlin,Madrid,b
 ```
 
-**Schema** (`schema.json`):
+**Schema** (`questions.json`):
 ```json
 {
   "key_column": "id",
@@ -102,6 +102,15 @@ quiz_1,Q2,Capital of France?,London,Paris,Berlin,Madrid,b
     "correct_option_id": "correct_option_id"
   }
 }
+```
+
+**Command**:
+```bash
+# Auto-detects questions.json
+ffload questions.csv
+
+# Or explicitly specify
+ffload questions.csv -s questions.json
 ```
 
 **Firestore Result** (Document `quiz_1`):
@@ -351,7 +360,7 @@ RL,RL1,1,0,¿Cuál es el precio original?,§\$100§,§\$90§,§\$120§,§\$150§
 RL,RL2,1,1,¿Cuál es la dosis diaria?,"§0,7 mg§","§1,4 mg§","§2,0 mg§",,b,M2RL,T1RL
 ```
 
-**Schema** (`schema.json`):
+**Schema** (`toy_csv.json`):
 ```json
 {
   "key_column": "id",
@@ -373,7 +382,11 @@ RL,RL2,1,1,¿Cuál es la dosis diaria?,"§0,7 mg§","§1,4 mg§","§2,0 mg§",,b
 
 **Command**:
 ```bash
+# Auto-detects toy_csv.json, uses custom collection name
 ffload toy_csv.csv -c quiz_collection
+
+# Explicitly specify all options
+ffload toy_csv.csv -s toy_csv.json -c quiz_collection
 ```
 
 **Firestore Result** (Collection: `quiz_collection`, Document: `RL`):
@@ -449,9 +462,12 @@ ffload toy_csv.csv -c quiz_collection
 **Symptom**: Data uploads but stays flat (no nested structure)
 
 **Solutions**:
-1. Verify `schema.json` exists in your working directory (where you run `ffload`)
+1. Verify schema file exists with correct name:
+   - Auto-detected: `[csv_filename].json` (e.g., `data.csv` → `data.json`)
+   - Or use `-s` flag to specify custom path
 2. Validate JSON syntax: `python -m json.tool schema.json`
 3. Ensure `key_column` value exists in your CSV
+4. Check logs for schema loading messages (use `-v` or `-d` flags)
 
 ### Missing Key Column Error
 

@@ -78,7 +78,7 @@ quiz_geo,G1,Capital of France?,London,Paris,,,b,2
 quiz_geo,G2,Largest ocean?,Atlantic,Pacific,Indian,Arctic,b,3
 ```
 
-### Schema File (`schema.json`)
+### Schema File (`questions.json`)
 
 ```json
 {
@@ -100,7 +100,11 @@ quiz_geo,G2,Largest ocean?,Atlantic,Pacific,Indian,Arctic,b,3
 ### Command
 
 ```bash
+# Auto-detects questions.json schema
 ffload questions.csv
+
+# Or explicitly specify
+ffload questions.csv -s questions.json
 ```
 
 ### Firestore Result
@@ -231,11 +235,14 @@ store_la,LA Location,"789 Sunset Blvd, Los Angeles",geopoint: 34.0522,-118.2437,
 ### Command
 
 ```bash
-# Test locally first
+# Test locally first with merge (default)
 ffload stores.csv --local -v
 
 # Deploy to production
 ffload stores.csv
+
+# Overwrite existing documents instead of merging
+ffload stores.csv --no-merge
 ```
 
 ### Firestore Result
@@ -361,13 +368,13 @@ This hardcodes `"type": "question"` in every document.
 #### 3. Test Schema with Small Dataset
 
 ```bash
-# Create test.csv with 2-3 rows
+# Create test.csv with 2-3 rows and test.json schema
 # Upload to local emulator
 ffload test.csv --local
 
 # Verify structure in emulator UI
-# Then upload full dataset
-ffload full_data.csv
+# Then upload full dataset with corresponding schema
+ffload full_data.csv -s full_data.json
 ```
 
 ### Type Safety
@@ -551,18 +558,25 @@ user2,unknown,Jane ⚠️ Warning
 
 **Possible Causes**:
 
-#### 1. schema.json Not in Working Directory
+#### 1. Schema File Not Found
 
 **Check**:
 ```bash
-ls schema.json  # Should exist in current directory
-pwd             # Note your working directory
+# For data.csv, schema should be data.json
+ls data.json
+
+# Or check if you're using custom schema path
+ffload data.csv -s custom_schema.json  # Verify path is correct
 ```
 
-**Solution**: Run `ffload` from the directory containing `schema.json`:
+**Solution**: Ensure schema file exists with correct name or path:
 ```bash
-cd /path/to/schema/directory
+# Option 1: Use auto-detected name
+mv schema.json data.json  # Rename to match CSV
 ffload data.csv
+
+# Option 2: Use -s flag for custom path
+ffload data.csv -s /path/to/custom_schema.json
 ```
 
 #### 2. Invalid JSON Syntax
@@ -820,11 +834,20 @@ If you encounter issues not covered here:
 
 **Common Commands**:
 ```bash
-# Basic upload
+# Basic upload (auto-detects data.json schema)
 ffload data.csv
 
 # Custom collection name
 ffload data.csv -c my_collection
+
+# Custom schema file
+ffload data.csv -s custom_schema.json
+
+# Merge mode (default - adds/updates fields)
+ffload data.csv --merge
+
+# Overwrite mode (replaces entire documents)
+ffload data.csv --no-merge
 
 # Local emulator
 ffload data.csv --local
@@ -836,12 +859,14 @@ ffload data.csv -v
 ffload data.csv -d
 
 # Combine flags
-ffload data.csv -c products --local -v
+ffload data.csv -c products -s product_schema.json --merge --local -v
 ```
 
 **File Requirements**:
 - CSV must have `DocumentId` column (case-sensitive)
-- `schema.json` optional, must be in working directory
+- Schema file optional:
+  - Auto-detected: `[csv_filename].json` (e.g., `data.csv` → `data.json`)
+  - Custom path: Use `-s` flag
 - Valid CSV format (commas, proper quoting)
 
 **Type Hints**:

@@ -9,7 +9,7 @@ class UploaderInterface(ABC):
 
     @abstractmethod
     def upload_document(
-        self, collection_id: str, document_id: str, fields: dict
+        self, collection_id: str, document_id: str, fields: dict, merge: bool
     ):
         """Uploads a single data document to the data store."""
         pass

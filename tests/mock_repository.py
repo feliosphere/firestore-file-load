@@ -19,7 +19,11 @@ class MockRepository(UploaderInterface):
         self.collections = {}
 
     def upload_document(
-        self, collection_id: str, document_id: str, fields: dict
+        self,
+        collection_id: str,
+        document_id: str,
+        fields: dict,
+        merge: bool = True,
     ):
         """
         Mock upload that stores the document in memory.
@@ -28,6 +32,7 @@ class MockRepository(UploaderInterface):
             collection_id: The collection name
             document_id: The document ID
             fields: The document fields
+            merge: If True, merge with existing document; if False, replace
         """
         # Store in list for ordered access
         self.uploaded_documents.append(
@@ -35,13 +40,21 @@ class MockRepository(UploaderInterface):
                 'collection_id': collection_id,
                 'document_id': document_id,
                 'fields': fields,
+                'merge': merge,
             }
         )
 
         # Store in dict for collection-based access
         if collection_id not in self.collections:
             self.collections[collection_id] = {}
-        self.collections[collection_id][document_id] = fields
+
+        if merge and document_id in self.collections[collection_id]:
+            # Merge mode: update existing fields
+            existing = self.collections[collection_id][document_id]
+            existing.update(fields)
+        else:
+            # Overwrite mode or new document
+            self.collections[collection_id][document_id] = fields
 
     def get_document(self, collection_id: str, document_id: str):
         """
@@ -71,3 +84,12 @@ class MockRepository(UploaderInterface):
         """Clear all stored documents."""
         self.uploaded_documents = []
         self.collections = {}
+
+    def get_upload_count(self):
+        """
+        Get the number of upload operations performed.
+
+        Returns:
+            Number of times upload_document was called
+        """
+        return len(self.uploaded_documents)
