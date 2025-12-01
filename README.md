@@ -54,7 +54,7 @@ ffload products.csv
 
 ### With Schema Transformation
 
-Transform flat CSV data into nested structures using `schema.json`.
+Transform flat CSV data into nested structures using a JSON schema file. The schema file name should match your CSV file (e.g., `questions.json` for `questions.csv`), or you can specify a custom path with `-s`.
 
 **CSV** (`questions.csv`):
 ```csv
@@ -63,7 +63,7 @@ quiz_1,Q1,What is 2+2?,3,4,5,,b
 quiz_1,Q2,Capital of France?,London,Paris,Berlin,Madrid,b
 ```
 
-**Schema** (`schema.json`):
+**Schema** (`questions.json`):
 ```json
 {
   "key_column": "id",
@@ -82,7 +82,11 @@ quiz_1,Q2,Capital of France?,London,Paris,Berlin,Madrid,b
 
 **Upload**:
 ```bash
+# Schema file auto-detected as questions.json
 ffload questions.csv
+
+# Or explicitly specify schema
+ffload questions.csv -s questions.json
 ```
 
 **Result** - Document `quiz_1`:
@@ -126,11 +130,26 @@ ffload [OPTIONS] csv_file_path
 
 ### Options
 
+#### File Inputs
 | Option | Description |
 |--------|-------------|
 | `csv_file_path` | Path to the CSV file (required) |
+| `-s, --schema PATH` | Path to JSON schema file (defaults to `[csv_filename].json`) |
+
+#### Collection Options
+| Option | Description |
+|--------|-------------|
 | `-c, --collection NAME` | Collection name (defaults to CSV filename without extension) |
+| `--merge` / `--no-merge` | Merge with existing documents or overwrite (default: `--merge`) |
+
+#### Connection Options
+| Option | Description |
+|--------|-------------|
 | `--local` | Use Firestore emulator at localhost:8080 instead of Cloud Firestore |
+
+#### Logging and Debugging Options
+| Option | Description |
+|--------|-------------|
 | `-v, --verbose` | Enable verbose logging (INFO level) |
 | `-d, --debug` | Enable debug logging (DEBUG level with full tracebacks) |
 | `-h, --help` | Show help message and exit |
@@ -138,11 +157,17 @@ ffload [OPTIONS] csv_file_path
 ### Examples
 
 ```bash
-# Basic upload
+# Basic upload (auto-detects data.json as schema)
 ffload data.csv
 
 # Custom collection name
 ffload data.csv -c my_collection
+
+# Explicit schema file
+ffload data.csv -s custom_schema.json
+
+# Overwrite existing documents instead of merging
+ffload data.csv --no-merge
 
 # Test with local emulator
 ffload data.csv --local
@@ -154,7 +179,7 @@ ffload data.csv -v
 ffload data.csv -d
 
 # Combine options
-ffload data.csv -c products --local -v
+ffload data.csv -c products -s product_schema.json --merge --local -v
 ```
 
 ## 🔐 Google Cloud Setup
@@ -202,7 +227,10 @@ For more detailed troubleshooting, see the [Examples & Best Practices](docs/exam
    user1,25,29.99,true
    ```
 
-3. **Schema File** (optional): Create `schema.json` in your working directory for nested structures
+3. **Schema File** (optional): 
+   - Auto-detected: `[csv_filename].json` (e.g., `data.csv` → `data.json`)
+   - Custom path: Use `-s` flag (e.g., `-s custom_schema.json`)
+   - Enables transformation of flat CSV into nested Firestore structures
 
 ## 💡 Common Use Cases
 

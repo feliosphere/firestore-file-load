@@ -1,10 +1,8 @@
 # Copyright (c) 2025 Felipe Paucar
 # Licensed under the MIT License
 
-import json
 import logging
-import os
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 

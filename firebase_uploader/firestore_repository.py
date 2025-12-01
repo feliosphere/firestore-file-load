@@ -4,7 +4,6 @@
 import logging
 
 from firebase_admin import credentials, firestore, initialize_app
-from numpy._core.numerictypes import bool_
 
 from .uploader_interface import UploaderInterface
 
