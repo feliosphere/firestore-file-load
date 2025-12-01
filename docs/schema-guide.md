@@ -7,9 +7,10 @@ Transform flat CSV rows into complex, hierarchical Firestore documents using `sc
 1. [When to Use Schemas](#when-to-use-schemas)
 2. [Automatic Grouping (No Schema)](#automatic-grouping-no-schema)
 3. [Schema-Driven Transformation](#schema-driven-transformation)
-4. [Configuration Reference](#configuration-reference)
-5. [Dynamic List Filtering](#dynamic-list-filtering)
-6. [Complete Example](#complete-example)
+4. [Multi-Level Nested Maps (Advanced)](#multi-level-nested-maps-advanced)
+5. [Configuration Reference](#configuration-reference)
+6. [Dynamic List Filtering](#dynamic-list-filtering)
+7. [Complete Example](#complete-example)
 
 ## When to Use Schemas
 
@@ -135,6 +136,272 @@ ffload questions.csv -s questions.json
       {"id": "d", "text": "Madrid"}
     ],
     "correct_option_id": "b"
+  }
+}
+```
+
+## Multi-Level Nested Maps (Advanced)
+
+For complex hierarchical data, you can create deeply nested map structures using recursive `key_column` definitions. This enables map-within-map structures with arbitrary depth.
+
+### When to Use
+
+Multi-level nesting is ideal for:
+- **Hierarchical taxonomies**: Categories → Subcategories → Items
+- **Game/education levels**: Worlds → Levels → Content
+- **Geographic data**: Countries → States → Cities
+- **Product catalogs**: Departments → Categories → Products
+
+### Basic Concept
+
+Instead of having a single `key_column` that creates one level of nesting, you can nest `key_column` definitions within the `structure` to create multiple levels.
+
+**Single-level nesting**:
+```json
+{
+  "key_column": "id",
+  "structure": { "name": "name" }
+}
+```
+Result: `{id_value: {name: ...}}`
+
+**Two-level nesting**:
+```json
+{
+  "key_column": "category",
+  "structure": {
+    "key_column": "item_id",
+    "structure": { "name": "name" }
+  }
+}
+```
+Result: `{category_value: {item_id_value: {name: ...}}}`
+
+### Example: World Levels
+
+**CSV** (`worlds.csv`):
+```csv
+DocumentId,worlds,world_num,title,questions_list
+toyCL,world_a,1,World 11,question_list1
+toyCL,world_a,2,World 12,question_list2
+toyCL,world_b,1,World 21,question_list3
+toyCL,world_b,2,World 22,question_list4
+```
+
+**Schema** (`worlds.json`):
+```json
+{
+  "key_column": "worlds",
+  "structure": {
+    "key_column": "world_num",
+    "structure": {
+      "course_id": "DocumentId",
+      "title": "title",
+      "questions_list": "questions_list"
+    }
+  }
+}
+```
+
+**Command**:
+```bash
+ffload worlds.csv
+```
+
+**Firestore Result** (Document `toyCL`):
+```json
+{
+  "world_a": {
+    "1": {
+      "course_id": "toyCL",
+      "title": "World 11",
+      "questions_list": "question_list1"
+    },
+    "2": {
+      "course_id": "toyCL",
+      "title": "World 12",
+      "questions_list": "question_list2"
+    }
+  },
+  "world_b": {
+    "1": {
+      "course_id": "toyCL",
+      "title": "World 21",
+      "questions_list": "question_list3"
+    },
+    "2": {
+      "course_id": "toyCL",
+      "title": "World 22",
+      "questions_list": "question_list4"
+    }
+  }
+}
+```
+
+### Example: Three-Level Hierarchy
+
+**CSV** (`products.csv`):
+```csv
+DocumentId,category,subcategory,item_id,name,price:float
+store1,electronics,phones,p1,iPhone,999.99
+store1,electronics,phones,p2,Samsung,899.99
+store1,electronics,laptops,l1,MacBook,1999.99
+store1,clothing,shirts,s1,T-Shirt,19.99
+```
+
+**Schema** (`products.json`):
+```json
+{
+  "key_column": "category",
+  "structure": {
+    "key_column": "subcategory",
+    "structure": {
+      "key_column": "item_id",
+      "structure": {
+        "name": "name",
+        "price": "price"
+      }
+    }
+  }
+}
+```
+
+**Firestore Result** (Document `store1`):
+```json
+{
+  "electronics": {
+    "phones": {
+      "p1": {"name": "iPhone", "price": 999.99},
+      "p2": {"name": "Samsung", "price": 899.99}
+    },
+    "laptops": {
+      "l1": {"name": "MacBook", "price": 1999.99}
+    }
+  },
+  "clothing": {
+    "shirts": {
+      "s1": {"name": "T-Shirt", "price": 19.99}
+    }
+  }
+}
+```
+
+### Combining with Lists and Other Features
+
+Multi-level nesting works seamlessly with all schema features:
+
+**CSV**:
+```csv
+DocumentId,category,item_id,question,opt_a,opt_b,opt_c
+quiz1,math,q1,What is 2+2?,3,4,5
+quiz1,math,q2,What is 3+3?,5,6,7
+quiz1,science,q3,Boiling point?,90,100,110
+```
+
+**Schema**:
+```json
+{
+  "key_column": "category",
+  "structure": {
+    "key_column": "item_id",
+    "structure": {
+      "question": "question",
+      "options": [
+        {"id": "literal:a", "text": "opt_a"},
+        {"id": "literal:b", "text": "opt_b"},
+        {"id": "literal:c", "text": "opt_c"}
+      ]
+    }
+  }
+}
+```
+
+**Result** (Document `quiz1`):
+```json
+{
+  "math": {
+    "q1": {
+      "question": "What is 2+2?",
+      "options": [
+        {"id": "a", "text": "3"},
+        {"id": "b", "text": "4"},
+        {"id": "c", "text": "5"}
+      ]
+    },
+    "q2": {
+      "question": "What is 3+3?",
+      "options": [
+        {"id": "a", "text": "5"},
+        {"id": "b", "text": "6"},
+        {"id": "c", "text": "7"}
+      ]
+    }
+  },
+  "science": {
+    "q3": {
+      "question": "Boiling point?",
+      "options": [
+        {"id": "a", "text": "90"},
+        {"id": "b", "text": "100"},
+        {"id": "c", "text": "110"}
+      ]
+    }
+  }
+}
+```
+
+### Key Type Preservation
+
+Keys maintain their original data type:
+
+**CSV**:
+```csv
+DocumentId,category,level:int,name
+game1,world_a,1,Easy Level
+game1,world_a,2,Medium Level
+```
+
+**Result** (integer keys preserved):
+```json
+{
+  "world_a": {
+    1: {"name": "Easy Level"},    // Integer key, not "1"
+    2: {"name": "Medium Level"}   // Integer key, not "2"
+  }
+}
+```
+
+### Best Practices
+
+1. **Plan your hierarchy**: Sketch out the desired JSON structure before creating the schema
+2. **Use meaningful key columns**: Choose columns that logically represent each nesting level
+3. **Order matters in CSV**: While not strictly required, organizing rows by hierarchy makes debugging easier
+4. **Test incrementally**: Start with 2-level nesting, verify it works, then add more levels if needed
+5. **Type hints**: Use column type hints (e.g., `level:int`) to preserve numeric keys
+
+### Common Patterns
+
+**Two-level: Category → Items**
+```json
+{
+  "key_column": "category",
+  "structure": {
+    "key_column": "item_id",
+    "structure": { "data": "value" }
+  }
+}
+```
+
+**Three-level: Department → Category → Products**
+```json
+{
+  "key_column": "department",
+  "structure": {
+    "key_column": "category",
+    "structure": {
+      "key_column": "product_id",
+      "structure": { "data": "value" }
+    }
   }
 }
 ```
