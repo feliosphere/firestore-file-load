@@ -43,14 +43,24 @@ def parse_firestore_value(value: Any, type_hint: str | None = None) -> Any:
     return _auto_detect_type(value)
 
 
-def get_fields(row: dict) -> dict:
-    """Transforms a raw CSV row (dict) into a typed Firestore-ready dict."""
+def get_fields(row: dict, include_document_id: bool = False) -> dict:
+    """
+    Transforms a raw CSV row (dict) into a typed Firestore-ready dict.
+
+    Args:
+        row: Raw CSV row dictionary
+        include_document_id: If True, includes DocumentId in the result
+                            (useful when DocumentId is referenced in schema)
+
+    Returns:
+        Dictionary with typed Firestore values
+    """
     fields = {}
 
     for header, value in row.items():
         field_name, type_hint = _parse_column_header(header)
 
-        if field_name == 'DocumentId':
+        if field_name == 'DocumentId' and not include_document_id:
             continue
 
         fields[field_name] = parse_firestore_value(value, type_hint=type_hint)
@@ -124,6 +134,52 @@ def apply_schema_mapping(row_data: dict, schema_structure: Any) -> Any:
     return None
 
 
+def _apply_keyed_nesting(
+    row_data: dict, schema: dict, current_level: dict
+) -> None:
+    """
+    Recursively applies key-column-based nesting to build nested maps.
+
+    This function handles schemas with nested key_column definitions,
+    allowing for map-within-map structures (e.g., {world_a: {1: {...}, 2: {...}}}).
+
+    Args:
+        row_data: The processed row data (after type conversion)
+        schema: Schema definition containing 'key_column' and 'structure'
+        current_level: The current level dict to populate (modified in place)
+
+    The function works by:
+    1. Extracting the key value from row_data using schema['key_column']
+    2. Checking if schema['structure'] contains another 'key_column' (deeper nesting)
+    3. If yes: recurse to create nested maps
+    4. If no: apply schema mapping to create final data structure
+    """
+    if 'key_column' not in schema:
+        logger.warning('Schema missing key_column, cannot apply keyed nesting')
+        return
+
+    key_col = schema['key_column']
+    structure = schema['structure']
+
+    if key_col not in row_data:
+        logger.warning(f"Missing key column '{key_col}' in row data")
+        return
+
+    doc_key = row_data[key_col]
+    if doc_key is None or (isinstance(doc_key, str) and not doc_key):
+        logger.warning(f"Empty key column '{key_col}' in row data")
+        return
+
+    if isinstance(structure, dict) and 'key_column' in structure:
+        if doc_key not in current_level:
+            current_level[doc_key] = {}
+
+        _apply_keyed_nesting(row_data, structure, current_level[doc_key])
+    else:
+        nested_data = apply_schema_mapping(row_data, structure)
+        current_level[doc_key] = nested_data
+
+
 def process_and_upload_csv(
     spec: CollectionSpec,
 ):
@@ -132,7 +188,6 @@ def process_and_upload_csv(
     """
     csv_file_path = spec.file_path
     repository = FirestoreRepository()
-
 
     # LOAD THE SCHEMA
     schema = spec.get_schema()
@@ -158,22 +213,13 @@ def process_and_upload_csv(
             # Process each row in the group
             for raw_row in raw_rows:
                 # Type Conversion
-                clean_row = get_fields(raw_row)
+                clean_row = get_fields(
+                    raw_row, include_document_id=bool(schema)
+                )
 
                 # Schema Application
                 if schema:
-                    key_col = schema.get('key_column', 'id')
-
-                    if key_col in clean_row and clean_row[key_col]:
-                        doc_key = str(clean_row[key_col])
-                        nested_data = apply_schema_mapping(
-                            clean_row, schema['structure']
-                        )
-                        firestore_doc[doc_key] = nested_data
-                    else:
-                        logger.warning(
-                            f"Skipping row in {doc_id_str}: Missing key column '{key_col}'"
-                        )
+                    _apply_keyed_nesting(clean_row, schema, firestore_doc)
 
                 else:
                     # Fallback (No Schema)
