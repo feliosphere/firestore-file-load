@@ -383,19 +383,19 @@ quiz1,world_a,1,What is 2+2?,3,4,5
 
             process_and_upload_csv(spec)
 
-            # Verify nested structure with list
+            # Verify nested structure with list (keys are strings)
             doc = mock_repo.get_document(spec.name, 'quiz1')
             assert doc is not None
             assert 'world_a' in doc
-            assert 1 in doc['world_a']
-            assert doc['world_a'][1]['question'] == 'What is 2+2?'
+            assert '1' in doc['world_a']
+            assert doc['world_a']['1']['question'] == 'What is 2+2?'
 
             # Verify list structure works in nested context
-            assert len(doc['world_a'][1]['options']) == 3
-            assert doc['world_a'][1]['options'][0]['id'] == 'a'
-            assert doc['world_a'][1]['options'][0]['text'] == 3
-            assert doc['world_a'][1]['options'][1]['id'] == 'b'
-            assert doc['world_a'][1]['options'][1]['text'] == 4
+            assert len(doc['world_a']['1']['options']) == 3
+            assert doc['world_a']['1']['options'][0]['id'] == 'a'
+            assert doc['world_a']['1']['options'][0]['text'] == 3
+            assert doc['world_a']['1']['options'][1]['id'] == 'b'
+            assert doc['world_a']['1']['options'][1]['text'] == 4
 
         finally:
             if schema_path.exists():
@@ -592,23 +592,23 @@ toyCL,world_b,1,World 21,question_list3
             assert 'world_a' in doc
             assert 'world_b' in doc
 
-            # Check second level: world_num under world_a
-            assert 1 in doc['world_a']
-            assert 2 in doc['world_a']
-            assert 1 in doc['world_b']
+            # Check second level: world_num under world_a (keys are strings)
+            assert '1' in doc['world_a']
+            assert '2' in doc['world_a']
+            assert '1' in doc['world_b']
 
             # Check final data structure
-            assert doc['world_a'][1]['course_id'] == 'toyCL'
-            assert doc['world_a'][1]['title'] == 'World 11'
-            assert doc['world_a'][1]['question_list'] == 'question_list1'
+            assert doc['world_a']['1']['course_id'] == 'toyCL'
+            assert doc['world_a']['1']['title'] == 'World 11'
+            assert doc['world_a']['1']['question_list'] == 'question_list1'
 
-            assert doc['world_a'][2]['course_id'] == 'toyCL'
-            assert doc['world_a'][2]['title'] == 'World 12'
-            assert doc['world_a'][2]['question_list'] == 'question_list2'
+            assert doc['world_a']['2']['course_id'] == 'toyCL'
+            assert doc['world_a']['2']['title'] == 'World 12'
+            assert doc['world_a']['2']['question_list'] == 'question_list2'
 
-            assert doc['world_b'][1]['course_id'] == 'toyCL'
-            assert doc['world_b'][1]['title'] == 'World 21'
-            assert doc['world_b'][1]['question_list'] == 'question_list3'
+            assert doc['world_b']['1']['course_id'] == 'toyCL'
+            assert doc['world_b']['1']['title'] == 'World 21'
+            assert doc['world_b']['1']['question_list'] == 'question_list3'
 
         finally:
             if schema_path.exists():
@@ -661,17 +661,17 @@ toyRL,world_a,2,World 22,question_list4
             # Verify two separate documents were created
             assert mock_repo.get_upload_count() == 2
 
-            # Check toyCL document
+            # Check toyCL document (keys are strings)
             doc1 = mock_repo.get_document(spec.name, 'toyCL')
             assert doc1 is not None
-            assert doc1['world_a'][1]['course_id'] == 'toyCL'
-            assert doc1['world_a'][2]['course_id'] == 'toyCL'
+            assert doc1['world_a']['1']['course_id'] == 'toyCL'
+            assert doc1['world_a']['2']['course_id'] == 'toyCL'
 
-            # Check toyRL document
+            # Check toyRL document (keys are strings)
             doc2 = mock_repo.get_document(spec.name, 'toyRL')
             assert doc2 is not None
-            assert doc2['world_a'][1]['course_id'] == 'toyRL'
-            assert doc2['world_a'][2]['course_id'] == 'toyRL'
+            assert doc2['world_a']['1']['course_id'] == 'toyRL'
+            assert doc2['world_a']['2']['course_id'] == 'toyRL'
 
         finally:
             if schema_path.exists():

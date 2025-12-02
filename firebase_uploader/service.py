@@ -170,14 +170,18 @@ def _apply_keyed_nesting(
         logger.warning(f"Empty key column '{key_col}' in row data")
         return
 
-    if isinstance(structure, dict) and 'key_column' in structure:
-        if doc_key not in current_level:
-            current_level[doc_key] = {}
+    # Convert key to string for Firestore compatibility
+    # Firestore map keys must be strings
+    doc_key_str = str(doc_key)
 
-        _apply_keyed_nesting(row_data, structure, current_level[doc_key])
+    if isinstance(structure, dict) and 'key_column' in structure:
+        if doc_key_str not in current_level:
+            current_level[doc_key_str] = {}
+
+        _apply_keyed_nesting(row_data, structure, current_level[doc_key_str])
     else:
         nested_data = apply_schema_mapping(row_data, structure)
-        current_level[doc_key] = nested_data
+        current_level[doc_key_str] = nested_data
 
 
 def process_and_upload_csv(

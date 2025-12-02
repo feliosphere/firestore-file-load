@@ -350,9 +350,9 @@ quiz1,science,q3,Boiling point?,90,100,110
 }
 ```
 
-### Key Type Preservation
+### Key Conversion to Strings
 
-Keys maintain their original data type:
+**Important**: Firestore requires all map keys to be strings. The tool automatically converts all keys to strings, regardless of their original type in the CSV.
 
 **CSV**:
 ```csv
@@ -361,15 +361,17 @@ game1,world_a,1,Easy Level
 game1,world_a,2,Medium Level
 ```
 
-**Result** (integer keys preserved):
+**Result** (keys converted to strings):
 ```json
 {
   "world_a": {
-    1: {"name": "Easy Level"},    // Integer key, not "1"
-    2: {"name": "Medium Level"}   // Integer key, not "2"
+    "1": {"name": "Easy Level"},    // String key "1", not integer 1
+    "2": {"name": "Medium Level"}   // String key "2", not integer 2
   }
 }
 ```
+
+**Note**: Even if you use type hints like `level:int`, the value will be an integer but the **key** will always be a string when used in nested maps.
 
 ### Best Practices
 
@@ -377,7 +379,7 @@ game1,world_a,2,Medium Level
 2. **Use meaningful key columns**: Choose columns that logically represent each nesting level
 3. **Order matters in CSV**: While not strictly required, organizing rows by hierarchy makes debugging easier
 4. **Test incrementally**: Start with 2-level nesting, verify it works, then add more levels if needed
-5. **Type hints**: Use column type hints (e.g., `level:int`) to preserve numeric keys
+5. **Remember keys are strings**: All map keys in Firestore are strings, so `1` becomes `"1"` in the final document
 
 ### Common Patterns
 
