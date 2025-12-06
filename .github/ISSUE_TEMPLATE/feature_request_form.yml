@@ -1,0 +1,71 @@
+name: "✨ Feature Request"
+description: "Suggest an idea for a new feature or enhancement."
+title: "[Feature]: "
+labels: ["enhancement", "needs-review"]
+body:
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: "💡 Feature Summary"
+      description: "Provide a brief, clear, and concise description of the requested feature."
+      placeholder: "I would like an option to export data as a CSV file."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: "Why is this feature needed?"
+      description: "Describe the problem you are trying to solve or the current limitation you are facing."
+      placeholder: "Currently, there is no easy way to get data out of the application for external reporting, forcing me to use manual copy/paste."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: "🎯 Proposed Solution (Optional)"
+      description: "Describe how you think this feature could be implemented or what it should look like."
+      placeholder: "A new button labeled 'Export' should be added next to the 'Settings' icon, which triggers the file download."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority-level
+    attributes:
+      label: "📈 What is the priority/impact of this feature for you?"
+      description: "How important is this feature relative to your work/needs?"
+      multiple: false
+      options:
+        - "High (Blocks my workflow)"
+        - "Medium (Would significantly improve efficiency)"
+        - "Low (Nice-to-have)"
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "➕ Additional Context"
+      description: "Add any other context or screenshots about the feature request here."
+      placeholder: "e.g., Examples of how other tools handle this feature."
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: checkboxes
+    id: search
+    attributes:
+      label: "🔍 Check for Duplicates"
+      description: "Please confirm you have searched existing issues to prevent duplicates."
+      options:
+        - label: "I have searched the existing issues and did not find a similar request."
+          required: true
+
+  - type: markdown
+    attributes:
+      value: "Thank you for helping us improve!"
