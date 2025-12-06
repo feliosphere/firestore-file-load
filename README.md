@@ -116,6 +116,64 @@ ffload questions.csv -s questions.json
 
 Notice: Q1's empty option_d was automatically filtered out!
 
+### Multi-Level Nested Maps (Advanced)
+
+Create deeply nested map structures using recursive `key_column` definitions in your schema. This is perfect for hierarchical data like categories, world levels, or nested taxonomies.
+
+**CSV** (`tests/fixtures/worlds.csv`):
+```csv
+DocumentId,worlds,world_num,title,questions_list:list
+toyCL,world_a,1,World 11,"[""q1"", ""q2"", ""q3""]"
+toyCL,world_a,2,World 12,"[""q4"", ""q5""]"
+toyCL,world_b,1,World 21,"[""q6""]"
+```
+
+**Schema** (`worlds.json`):
+```json
+{
+  "key_column": "worlds",
+  "structure": {
+    "key_column": "world_num",
+    "structure": {
+      "course_id": "DocumentId",
+      "title": "title",
+      "questions_list": "questions_list"
+    }
+  }
+}
+```
+
+**Result** - Document `toyCL`:
+```json
+{
+  "world_a": {
+    "1": {
+      "course_id": "toyCL",
+      "title": "World 11",
+      "questions_list": ["q1", "q2", "q3"]
+    },
+    "2": {
+      "course_id": "toyCL",
+      "title": "World 12",
+      "questions_list": ["q4", "q5"]
+    }
+  },
+  "world_b": {
+    "1": {
+      "course_id": "toyCL",
+      "title": "World 21",
+      "questions_list": ["q6"]
+    }
+  }
+}
+```
+
+**Key Features**:
+- Supports arbitrary nesting depth (2, 3, or more levels)
+- Map keys are always strings (Firestore requirement), while values keep their proper types
+- Combine with lists and all other schema features
+- Perfect for hierarchical data structures
+
 ## 📖 Documentation
 
 - **[Schema Guide](docs/schema-guide.md)** - Transform flat CSV into nested Firestore structures

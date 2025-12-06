@@ -16,6 +16,10 @@ __pycache__/
 build/
 *.egg-info/
 
-# Test files
-*.csv
-*.json
+# User data files (ignore CSV/JSON in root, but not in tests/)
+/*.csv
+/*.json
+
+# Allow test fixtures
+!tests/fixtures/*.csv
+!tests/fixtures/*.json
