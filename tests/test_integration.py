@@ -257,6 +257,244 @@ quiz1,Q1,What is 2+2?,3,4
             if schema_path.exists():
                 schema_path.unlink()
 
+    def test_malformed_schema_missing_structure(
+        self, temp_csv_file, mock_repo, monkeypatch, caplog
+    ):
+        """Test that malformed schema (missing 'structure') is handled gracefully."""
+        csv_content = """DocumentId,category,name
+doc1,electronics,Phone
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create malformed schema (has key_column but no structure)
+        schema_path = csv_path.with_suffix('.json')
+        malformed_schema = {
+            'key_column': 'category'
+            # Missing 'structure' key!
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(malformed_schema, f)
+
+        try:
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(_file_path=csv_path, _merge=True)
+
+            # Should not crash, but should log warning
+            import logging
+
+            with caplog.at_level(logging.WARNING):
+                process_and_upload_csv(spec)
+
+            # Verify warning was logged
+            assert any(
+                "is missing 'structure'" in record.message
+                for record in caplog.records
+            )
+
+            # Document should still be created but with empty content
+            # (because the row was skipped)
+            doc = mock_repo.get_document(spec.name, 'doc1')
+            assert doc == {} or doc is None
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
+    def test_last_write_wins_duplicate_keys(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test that duplicate key combinations result in last-write-wins behavior."""
+        csv_content = """DocumentId,category,item_id,name,price
+doc1,electronics,phone,First Phone,100
+doc1,electronics,phone,Second Phone,200
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'category',
+            'structure': {
+                'key_column': 'item_id',
+                'structure': {'name': 'name', 'price': 'price'},
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(_file_path=csv_path, _merge=True)
+            process_and_upload_csv(spec)
+
+            doc = mock_repo.get_document(spec.name, 'doc1')
+            assert doc is not None
+
+            # Last row should win (Second Phone, 200)
+            assert doc['electronics']['phone']['name'] == 'Second Phone'
+            assert (
+                doc['electronics']['phone']['price'] == 200
+            )  # Auto-detected as int
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
+    def test_three_level_nested_key_columns(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test three-level nesting to verify recursive implementation."""
+        csv_content = """DocumentId,category,subcategory,item_id,name,price:float
+store1,electronics,phones,p1,iPhone,999.99
+store1,electronics,phones,p2,Samsung,899.99
+store1,electronics,laptops,l1,MacBook,1999.99
+store1,clothing,shirts,s1,T-Shirt,19.99
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create schema with three-level nesting
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'category',
+            'structure': {
+                'key_column': 'subcategory',
+                'structure': {
+                    'key_column': 'item_id',
+                    'structure': {
+                        'name': 'name',
+                        'price': 'price',
+                    },
+                },
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            # Mock FirestoreRepository
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(
+                _file_path=csv_path,
+                _merge=True,
+            )
+
+            process_and_upload_csv(spec)
+
+            # Verify three-level nested structure
+            doc = mock_repo.get_document(spec.name, 'store1')
+            assert doc is not None
+
+            # Check first level: category
+            assert 'electronics' in doc
+            assert 'clothing' in doc
+
+            # Check second level: subcategory
+            assert 'phones' in doc['electronics']
+            assert 'laptops' in doc['electronics']
+            assert 'shirts' in doc['clothing']
+
+            # Check third level: item_id
+            assert 'p1' in doc['electronics']['phones']
+            assert 'p2' in doc['electronics']['phones']
+            assert 'l1' in doc['electronics']['laptops']
+            assert 's1' in doc['clothing']['shirts']
+
+            # Check final data structure
+            assert doc['electronics']['phones']['p1']['name'] == 'iPhone'
+            assert doc['electronics']['phones']['p1']['price'] == 999.99
+
+            assert doc['electronics']['phones']['p2']['name'] == 'Samsung'
+            assert doc['electronics']['phones']['p2']['price'] == 899.99
+
+            assert doc['electronics']['laptops']['l1']['name'] == 'MacBook'
+            assert doc['electronics']['laptops']['l1']['price'] == 1999.99
+
+            assert doc['clothing']['shirts']['s1']['name'] == 'T-Shirt'
+            assert doc['clothing']['shirts']['s1']['price'] == 19.99
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
+    def test_nested_key_columns_with_lists(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test nested key_columns combined with list structures."""
+        csv_content = """DocumentId,worlds,world_num,question,opt_a,opt_b,opt_c
+quiz1,world_a,1,What is 2+2?,3,4,5
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create schema with nested key_column and list in final structure
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'worlds',
+            'structure': {
+                'key_column': 'world_num',
+                'structure': {
+                    'question': 'question',
+                    'options': [
+                        {'id': 'literal:a', 'text': 'opt_a'},
+                        {'id': 'literal:b', 'text': 'opt_b'},
+                        {'id': 'literal:c', 'text': 'opt_c'},
+                    ],
+                },
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            # Mock FirestoreRepository
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(
+                _file_path=csv_path,
+                _merge=True,
+            )
+
+            process_and_upload_csv(spec)
+
+            # Verify nested structure with list (keys are strings)
+            doc = mock_repo.get_document(spec.name, 'quiz1')
+            assert doc is not None
+            assert 'world_a' in doc
+            assert '1' in doc['world_a']
+            assert doc['world_a']['1']['question'] == 'What is 2+2?'
+
+            # Verify list structure works in nested context
+            assert len(doc['world_a']['1']['options']) == 3
+            assert doc['world_a']['1']['options'][0]['id'] == 'a'
+            assert doc['world_a']['1']['options'][0]['text'] == 3
+            assert doc['world_a']['1']['options'][1]['id'] == 'b'
+            assert doc['world_a']['1']['options'][1]['text'] == 4
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
     def test_process_csv_with_merge_true(
         self, temp_csv_file, mock_repo, monkeypatch
     ):
@@ -396,3 +634,143 @@ order2,Cherry,2.00
         order2 = mock_repo.get_document(spec.name, 'order2')
         assert order2 is not None
         assert len(order2['items']) == 1
+
+    def test_two_level_nested_key_columns(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test two-level nesting with nested key_column in schema."""
+        csv_content = """DocumentId,worlds,world_num,title,questions_list:list
+toyCL,world_a,1,World 11,"[""q1"", ""q2"", ""q3""]"
+toyCL,world_a,2,World 12,"[""q4"", ""q5""]"
+toyCL,world_b,1,World 21,"[""q6""]"
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create schema with nested key_column
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'worlds',
+            'structure': {
+                'key_column': 'world_num',
+                'structure': {
+                    'course_id': 'DocumentId',
+                    'question_list': 'questions_list',
+                    'title': 'title',
+                },
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            # Mock FirestoreRepository
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(
+                _file_path=csv_path,
+                _merge=True,
+            )
+
+            process_and_upload_csv(spec)
+
+            # Verify two-level nested structure
+            doc = mock_repo.get_document(spec.name, 'toyCL')
+            assert doc is not None
+
+            # Check first level: worlds
+            assert 'world_a' in doc
+            assert 'world_b' in doc
+
+            # Check second level: world_num under world_a (keys are strings)
+            assert '1' in doc['world_a']
+            assert '2' in doc['world_a']
+            assert '1' in doc['world_b']
+
+            # Check final data structure
+            assert doc['world_a']['1']['course_id'] == 'toyCL'
+            assert doc['world_a']['1']['title'] == 'World 11'
+            assert doc['world_a']['1']['question_list'] == ['q1', 'q2', 'q3']
+
+            assert doc['world_a']['2']['course_id'] == 'toyCL'
+            assert doc['world_a']['2']['title'] == 'World 12'
+            assert doc['world_a']['2']['question_list'] == ['q4', 'q5']
+
+            assert doc['world_b']['1']['course_id'] == 'toyCL'
+            assert doc['world_b']['1']['title'] == 'World 21'
+            assert doc['world_b']['1']['question_list'] == ['q6']
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
+    def test_two_level_nesting_multiple_documents(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test two-level nesting with multiple DocumentIds."""
+        csv_content = """DocumentId,worlds,world_num,title,questions_list:list
+toyCL,world_a,1,World 11,"[""q1"", ""q2""]"
+toyCL,world_a,2,World 12,"[""q3""]"
+toyRL,world_a,1,World 21,"[""q4"", ""q5"", ""q6""]"
+toyRL,world_a,2,World 22,"[""q7""]"
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create schema with nested key_column
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'worlds',
+            'structure': {
+                'key_column': 'world_num',
+                'structure': {
+                    'course_id': 'DocumentId',
+                    'question_list': 'questions_list',
+                    'title': 'title',
+                },
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            # Mock FirestoreRepository
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(
+                _file_path=csv_path,
+                _merge=True,
+            )
+
+            process_and_upload_csv(spec)
+
+            # Verify two separate documents were created
+            assert mock_repo.get_upload_count() == 2
+
+            # Check toyCL document (keys are strings)
+            doc1 = mock_repo.get_document(spec.name, 'toyCL')
+            assert doc1 is not None
+            assert doc1['world_a']['1']['course_id'] == 'toyCL'
+            assert doc1['world_a']['1']['question_list'] == ['q1', 'q2']
+            assert doc1['world_a']['2']['course_id'] == 'toyCL'
+            assert doc1['world_a']['2']['question_list'] == ['q3']
+
+            # Check toyRL document (keys are strings)
+            doc2 = mock_repo.get_document(spec.name, 'toyRL')
+            assert doc2 is not None
+            assert doc2['world_a']['1']['course_id'] == 'toyRL'
+            assert doc2['world_a']['1']['question_list'] == ['q4', 'q5', 'q6']
+            assert doc2['world_a']['2']['course_id'] == 'toyRL'
+            assert doc2['world_a']['2']['question_list'] == ['q7']
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
