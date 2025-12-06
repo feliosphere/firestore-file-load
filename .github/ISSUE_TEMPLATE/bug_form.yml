@@ -1,0 +1,69 @@
+name: "🐛 Bug Report"
+description: "Report a reproducible bug or unexpected behavior."
+title: "[Bug]: "
+labels: ["bug", "triage"]
+projects:
+body:
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: "📝 Describe the Bug"
+      description: "A clear and concise description of what the bug is."
+      placeholder: "When I click the 'Save' button, the application crashes."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: "🚶 Steps"
+      description: "Steps to reproduce the behavior:"
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "✅ Expected Behavior"
+      description: "A clear and concise description of what you expected to happen."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "❌ Actual Behavior"
+      description: "What actually happened when the issue occurred."
+    validations:
+      required: true
+
+  - type: textarea
+    id: device
+    attributes:
+      label: "💻 Operating System"
+      description: "What device and/or operating system are you using?"
+      placeholder: "Example: Macbook Air, Windows 10, HP Victus Linux Mint 12"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: code-of-conduct
+    attributes:
+      label: "🤝 Code of Conduct"
+      description: "The Code of Conduct helps create a safe space for everyone. We require that everyone agrees to it."
+      options:
+        - label: "I agree to follow this project's Code of Conduct"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: markdown
+    attributes:
+      value: "Thanks for completing our form! We appreciate your contribution."
