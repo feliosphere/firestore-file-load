@@ -546,9 +546,9 @@ order2,Cherry,2.00
     ):
         """Test two-level nesting with nested key_column in schema."""
         csv_content = """DocumentId,worlds,world_num,title,questions_list:list
-toyCL,world_a,1,World 11,question_list1
-toyCL,world_a,2,World 12,question_list2
-toyCL,world_b,1,World 21,question_list3
+toyCL,world_a,1,World 11,"[""q1"", ""q2"", ""q3""]"
+toyCL,world_a,2,World 12,"[""q4"", ""q5""]"
+toyCL,world_b,1,World 21,"[""q6""]"
 """
         temp_csv_file.write(csv_content)
         temp_csv_file.flush()
@@ -600,15 +600,15 @@ toyCL,world_b,1,World 21,question_list3
             # Check final data structure
             assert doc['world_a']['1']['course_id'] == 'toyCL'
             assert doc['world_a']['1']['title'] == 'World 11'
-            assert doc['world_a']['1']['question_list'] == 'question_list1'
+            assert doc['world_a']['1']['question_list'] == ['q1', 'q2', 'q3']
 
             assert doc['world_a']['2']['course_id'] == 'toyCL'
             assert doc['world_a']['2']['title'] == 'World 12'
-            assert doc['world_a']['2']['question_list'] == 'question_list2'
+            assert doc['world_a']['2']['question_list'] == ['q4', 'q5']
 
             assert doc['world_b']['1']['course_id'] == 'toyCL'
             assert doc['world_b']['1']['title'] == 'World 21'
-            assert doc['world_b']['1']['question_list'] == 'question_list3'
+            assert doc['world_b']['1']['question_list'] == ['q6']
 
         finally:
             if schema_path.exists():
@@ -619,10 +619,10 @@ toyCL,world_b,1,World 21,question_list3
     ):
         """Test two-level nesting with multiple DocumentIds."""
         csv_content = """DocumentId,worlds,world_num,title,questions_list:list
-toyCL,world_a,1,World 11,question_list1
-toyCL,world_a,2,World 12,question_list2
-toyRL,world_a,1,World 21,question_list3
-toyRL,world_a,2,World 22,question_list4
+toyCL,world_a,1,World 11,"[""q1"", ""q2""]"
+toyCL,world_a,2,World 12,"[""q3""]"
+toyRL,world_a,1,World 21,"[""q4"", ""q5"", ""q6""]"
+toyRL,world_a,2,World 22,"[""q7""]"
 """
         temp_csv_file.write(csv_content)
         temp_csv_file.flush()
@@ -665,13 +665,17 @@ toyRL,world_a,2,World 22,question_list4
             doc1 = mock_repo.get_document(spec.name, 'toyCL')
             assert doc1 is not None
             assert doc1['world_a']['1']['course_id'] == 'toyCL'
+            assert doc1['world_a']['1']['question_list'] == ['q1', 'q2']
             assert doc1['world_a']['2']['course_id'] == 'toyCL'
+            assert doc1['world_a']['2']['question_list'] == ['q3']
 
             # Check toyRL document (keys are strings)
             doc2 = mock_repo.get_document(spec.name, 'toyRL')
             assert doc2 is not None
             assert doc2['world_a']['1']['course_id'] == 'toyRL'
+            assert doc2['world_a']['1']['question_list'] == ['q4', 'q5', 'q6']
             assert doc2['world_a']['2']['course_id'] == 'toyRL'
+            assert doc2['world_a']['2']['question_list'] == ['q7']
 
         finally:
             if schema_path.exists():

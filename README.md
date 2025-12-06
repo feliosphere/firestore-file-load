@@ -120,12 +120,12 @@ Notice: Q1's empty option_d was automatically filtered out!
 
 Create deeply nested map structures using recursive `key_column` definitions in your schema. This is perfect for hierarchical data like categories, world levels, or nested taxonomies.
 
-**CSV** (`worlds.csv`):
+**CSV** (`tests/fixtures/worlds.csv`):
 ```csv
-DocumentId,worlds,world_num,title,questions_list
-toyCL,world_a,1,World 11,question_list1
-toyCL,world_a,2,World 12,question_list2
-toyCL,world_b,1,World 21,question_list3
+DocumentId,worlds,world_num,title,questions_list:list
+toyCL,world_a,1,World 11,"[""q1"", ""q2"", ""q3""]"
+toyCL,world_a,2,World 12,"[""q4"", ""q5""]"
+toyCL,world_b,1,World 21,"[""q6""]"
 ```
 
 **Schema** (`worlds.json`):
@@ -150,19 +150,19 @@ toyCL,world_b,1,World 21,question_list3
     "1": {
       "course_id": "toyCL",
       "title": "World 11",
-      "questions_list": "question_list1"
+      "questions_list": ["q1", "q2", "q3"]
     },
     "2": {
       "course_id": "toyCL",
       "title": "World 12",
-      "questions_list": "question_list2"
+      "questions_list": ["q4", "q5"]
     }
   },
   "world_b": {
     "1": {
       "course_id": "toyCL",
       "title": "World 21",
-      "questions_list": "question_list3"
+      "questions_list": ["q6"]
     }
   }
 }
@@ -170,7 +170,7 @@ toyCL,world_b,1,World 21,question_list3
 
 **Key Features**:
 - Supports arbitrary nesting depth (2, 3, or more levels)
-- Keys maintain their original type (integers stay as integers, strings as strings)
+- Map keys are always strings (Firestore requirement), while values keep their proper types
 - Combine with lists and all other schema features
 - Perfect for hierarchical data structures
 

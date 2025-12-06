@@ -43,17 +43,22 @@ def parse_firestore_value(value: Any, type_hint: str | None = None) -> Any:
     return _auto_detect_type(value)
 
 
-def get_fields(row: dict, include_document_id: bool = False) -> dict:
+def get_fields(row: dict, *, include_document_id: bool = False) -> dict:
     """
     Transforms a raw CSV row (dict) into a typed Firestore-ready dict.
 
+    By default, DocumentId is excluded from the result since it serves as
+    the document key in Firestore and should not be duplicated in the payload.
+
     Args:
         row: Raw CSV row dictionary
-        include_document_id: If True, includes DocumentId in the result
-                            (useful when DocumentId is referenced in schema)
+        include_document_id: If True, includes DocumentId in the result.
+                            Set to True only when DocumentId is referenced
+                            in schema mappings (e.g., "course_id": "DocumentId").
+                            Default: False
 
     Returns:
-        Dictionary with typed Firestore values
+        Dictionary with typed Firestore values (DocumentId excluded by default)
     """
     fields = {}
 

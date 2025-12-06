@@ -179,13 +179,13 @@ Result: `{category_value: {item_id_value: {name: ...}}}`
 
 ### Example: World Levels
 
-**CSV** (`worlds.csv`):
+**CSV** (`tests/fixtures/worlds.csv`):
 ```csv
-DocumentId,worlds,world_num,title,questions_list
-toyCL,world_a,1,World 11,question_list1
-toyCL,world_a,2,World 12,question_list2
-toyCL,world_b,1,World 21,question_list3
-toyCL,world_b,2,World 22,question_list4
+DocumentId,worlds,world_num,title,questions_list:list
+toyCL,world_a,1,World 11,"[""q1"", ""q2"", ""q3""]"
+toyCL,world_a,2,World 12,"[""q4"", ""q5""]"
+toyCL,world_b,1,World 21,"[""q6""]"
+toyCL,world_b,2,World 22,"[""q7"", ""q8""]"
 ```
 
 **Schema** (`worlds.json`):
@@ -205,7 +205,7 @@ toyCL,world_b,2,World 22,question_list4
 
 **Command**:
 ```bash
-ffload worlds.csv
+ffload tests/fixtures/worlds.csv
 ```
 
 **Firestore Result** (Document `toyCL`):
@@ -215,24 +215,24 @@ ffload worlds.csv
     "1": {
       "course_id": "toyCL",
       "title": "World 11",
-      "questions_list": "question_list1"
+      "questions_list": ["q1", "q2", "q3"]
     },
     "2": {
       "course_id": "toyCL",
       "title": "World 12",
-      "questions_list": "question_list2"
+      "questions_list": ["q4", "q5"]
     }
   },
   "world_b": {
     "1": {
       "course_id": "toyCL",
       "title": "World 21",
-      "questions_list": "question_list3"
+      "questions_list": ["q6"]
     },
     "2": {
       "course_id": "toyCL",
       "title": "World 22",
-      "questions_list": "question_list4"
+      "questions_list": ["q7", "q8"]
     }
   }
 }
@@ -383,7 +383,7 @@ game1,world_a,2,Medium Level
 
 ### Common Patterns
 
-**Two-level: Category → Items**
+#### Two-level: Category → Items
 ```json
 {
   "key_column": "category",
@@ -394,7 +394,7 @@ game1,world_a,2,Medium Level
 }
 ```
 
-**Three-level: Department → Category → Products**
+#### Three-level: Department → Category → Products
 ```json
 {
   "key_column": "department",

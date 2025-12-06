@@ -1,0 +1,11 @@
+{
+  "key_column": "worlds",
+  "structure": {
+    "key_column": "world_num",
+    "structure": {
+      "course_id": "DocumentId",
+      "title": "title",
+      "questions_list": "questions_list"
+    }
+  }
+}
