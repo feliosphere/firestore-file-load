@@ -373,6 +373,52 @@ game1,world_a,2,Medium Level
 
 **Note**: Even if you use type hints like `level:int`, the value will be an integer but the **key** will always be a string when used in nested maps.
 
+### Important Behavior: Last-Write-Wins
+
+When multiple CSV rows share the same combination of `key_column` values, the **last row overwrites** earlier rows at that key path.
+
+**Example**:
+```csv
+DocumentId,category,item_id,name,price
+store1,electronics,phone,First Phone,100
+store1,electronics,phone,Updated Phone,150
+```
+
+**Schema**:
+```json
+{
+  "key_column": "category",
+  "structure": {
+    "key_column": "item_id",
+    "structure": {"name": "name", "price": "price"}
+  }
+}
+```
+
+**Result** (Document `store1`):
+```json
+{
+  "electronics": {
+    "phone": {
+      "name": "Updated Phone",  // Last row wins
+      "price": "150"            // Last row wins
+    }
+  }
+}
+```
+
+The first row's data (`"First Phone"`, `100`) is completely replaced by the second row.
+
+**When this behavior is useful**:
+- **Update patterns**: Later rows update earlier entries
+- **Default + override**: First row sets defaults, later rows override specific fields (when combined with `--merge`)
+
+**When to avoid duplicate keys**:
+- If you need to **aggregate** or **combine** data from multiple rows (e.g., collecting items into arrays)
+- Consider restructuring your CSV or using a different schema approach
+
+**Schema validation**: The tool does not validate uniqueness of key combinations. It's your responsibility to ensure CSV data matches your intended schema behavior.
+
 ### Best Practices
 
 1. **Plan your hierarchy**: Sketch out the desired JSON structure before creating the schema

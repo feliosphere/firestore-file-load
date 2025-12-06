@@ -148,6 +148,11 @@ def _apply_keyed_nesting(
     This function handles schemas with nested key_column definitions,
     allowing for map-within-map structures (e.g., {world_a: {1: {...}, 2: {...}}}).
 
+    Important behavior notes:
+    - Last-write-wins: If multiple rows share the same key combination,
+      the last row's data will overwrite earlier rows at that key path.
+    - Keys are automatically converted to strings (Firestore requirement).
+
     Args:
         row_data: The processed row data (after type conversion)
         schema: Schema definition containing 'key_column' and 'structure'
@@ -164,7 +169,15 @@ def _apply_keyed_nesting(
         return
 
     key_col = schema['key_column']
-    structure = schema['structure']
+
+    # Guard against missing 'structure' key
+    structure = schema.get('structure')
+    if structure is None:
+        logger.warning(
+            f"Schema for key_column '{key_col}' is missing 'structure'; "
+            f'skipping row'
+        )
+        return
 
     if key_col not in row_data:
         logger.warning(f"Missing key column '{key_col}' in row data")
@@ -185,6 +198,7 @@ def _apply_keyed_nesting(
 
         _apply_keyed_nesting(row_data, structure, current_level[doc_key_str])
     else:
+        # Last-write-wins: overwrites any existing data at this key
         nested_data = apply_schema_mapping(row_data, structure)
         current_level[doc_key_str] = nested_data
 

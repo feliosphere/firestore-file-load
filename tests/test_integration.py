@@ -257,6 +257,100 @@ quiz1,Q1,What is 2+2?,3,4
             if schema_path.exists():
                 schema_path.unlink()
 
+    def test_malformed_schema_missing_structure(
+        self, temp_csv_file, mock_repo, monkeypatch, caplog
+    ):
+        """Test that malformed schema (missing 'structure') is handled gracefully."""
+        csv_content = """DocumentId,category,name
+doc1,electronics,Phone
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        # Create malformed schema (has key_column but no structure)
+        schema_path = csv_path.with_suffix('.json')
+        malformed_schema = {
+            'key_column': 'category'
+            # Missing 'structure' key!
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(malformed_schema, f)
+
+        try:
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(_file_path=csv_path, _merge=True)
+
+            # Should not crash, but should log warning
+            import logging
+
+            with caplog.at_level(logging.WARNING):
+                process_and_upload_csv(spec)
+
+            # Verify warning was logged
+            assert any(
+                "is missing 'structure'" in record.message
+                for record in caplog.records
+            )
+
+            # Document should still be created but with empty content
+            # (because the row was skipped)
+            doc = mock_repo.get_document(spec.name, 'doc1')
+            assert doc == {} or doc is None
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
+    def test_last_write_wins_duplicate_keys(
+        self, temp_csv_file, mock_repo, monkeypatch
+    ):
+        """Test that duplicate key combinations result in last-write-wins behavior."""
+        csv_content = """DocumentId,category,item_id,name,price
+doc1,electronics,phone,First Phone,100
+doc1,electronics,phone,Second Phone,200
+"""
+        temp_csv_file.write(csv_content)
+        temp_csv_file.flush()
+        csv_path = Path(temp_csv_file.name)
+
+        schema_path = csv_path.with_suffix('.json')
+        schema_data = {
+            'key_column': 'category',
+            'structure': {
+                'key_column': 'item_id',
+                'structure': {'name': 'name', 'price': 'price'},
+            },
+        }
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema_data, f)
+
+        try:
+            monkeypatch.setattr(
+                'firebase_uploader.service.FirestoreRepository',
+                lambda: mock_repo,
+            )
+
+            spec = CollectionSpec(_file_path=csv_path, _merge=True)
+            process_and_upload_csv(spec)
+
+            doc = mock_repo.get_document(spec.name, 'doc1')
+            assert doc is not None
+
+            # Last row should win (Second Phone, 200)
+            assert doc['electronics']['phone']['name'] == 'Second Phone'
+            assert (
+                doc['electronics']['phone']['price'] == 200
+            )  # Auto-detected as int
+
+        finally:
+            if schema_path.exists():
+                schema_path.unlink()
+
     def test_three_level_nested_key_columns(
         self, temp_csv_file, mock_repo, monkeypatch
     ):
